@@ -1,0 +1,20 @@
+{
+  "name": "Mi Vida — Emmanuel",
+  "short_name": "Mi Vida",
+  "description": "Registro diario: dinero, comida, gym y universidad. Con coach de IA.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1116",
+  "theme_color": "#0e1116",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
