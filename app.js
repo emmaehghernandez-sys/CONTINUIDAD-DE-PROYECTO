@@ -244,7 +244,7 @@ function viewInicio(){
       <div class="ic" style="background:rgba(40,195,215,.15)">📌</div>
       <div class="mid"><div class="t">${esc(proxTarea.titulo)}</div>
         <div class="s">${esc(proxTarea.materia||'')} · ${proxTarea.fecha? 'vence '+fechaBonita(proxTarea.fecha):'sin fecha'}</div></div>
-      ${proxTarea.fecha? `<span class="tag" style="background:${diasRestantes(proxTarea.fecha)<=1?'rgba(255,92,92,.2)':'rgba(255,176,32,.18)'};color:${diasRestantes(proxTarea.fecha)<=1?'#ff9b9b':'#ffd98a'}">${diasRestantes(proxTarea.fecha)<=0?'¡hoy!':diasRestantes(proxTarea.fecha)+'d'}</span>`:''}
+      ${proxTarea.fecha? `<span class="tag" style="background:${diasRestantes(proxTarea.fecha)<=1?'rgba(214,72,72,.14)':'rgba(198,138,28,.16)'};color:${diasRestantes(proxTarea.fecha)<=1?'#b23b3b':'#8a6412'}">${diasRestantes(proxTarea.fecha)<=0?'¡hoy!':diasRestantes(proxTarea.fecha)+'d'}</span>`:''}
     </div>
   </div>`:''}
 
@@ -389,7 +389,7 @@ function viewComida(){
     return `<div class="card">
       <div class="kpi" style="justify-content:space-between">
         <div style="font-weight:700">${emoji} ${nombre}</div>
-        <span class="tag" style="background:rgba(255,138,76,.16);color:#ffb98a">${por.cal} kcal</span>
+        <span class="tag" style="background:rgba(197,106,52,.14);color:#a5521f">${por.cal} kcal</span>
       </div>
       <div class="hint" style="margin-top:8px;color:var(--txt)">
         Aprox: <b>${nfmt(por.palmas)} palma(s)</b> de pechuga/proteína ·
@@ -448,7 +448,7 @@ function viewGym(){
   const rutinaRows = DIAS.slice(1).concat('domingo').map(d=>{
     const val = S.gym.rutina[d]||'';
     return `<div class="row">
-      <div class="ic" style="background:var(--gym)22;color:#fff;text-transform:capitalize;font-size:12px;font-weight:800">${d.slice(0,3)}</div>
+      <div class="ic" style="background:rgba(106,79,208,.14);color:var(--gym);text-transform:capitalize;font-size:12px;font-weight:800">${d.slice(0,3)}</div>
       <div class="mid"><div class="t" style="${val?'':'color:var(--mut);font-weight:500'}">${val? esc(val):'Descanso — toca para asignar'}</div></div>
       <button class="addbtn" onclick="sheetRutina('${d}')">✎</button>
     </div>`;
@@ -488,7 +488,7 @@ function viewGym(){
   <div class="sectitle"><h2>Últimos entrenos</h2></div>
   <div class="card">
     ${entrenosSemana.length? entrenosSemana.sort((a,b)=>b.ts-a.ts).map(e=>`<div class="row">
-      <div class="ic" style="background:var(--gym)22">🔥</div>
+      <div class="ic" style="background:rgba(106,79,208,.14)">🔥</div>
       <div class="mid"><div class="t">${esc(e.nota||'Entreno')}</div><div class="s">${fechaBonita(e.fecha)} · ${e.duracion} min · ${esc(e.intensidad||'')}</div></div>
       <button class="addbtn" onclick="borrarEntreno('${e.id}')">×</button>
     </div>`).join('') : `<div class="empty"><div class="big">💪</div>Aún no registras entrenos esta semana.</div>`}
