@@ -204,6 +204,7 @@ function viewInicio(){
   const yaEntreno = S.gym.entrenos.some(e=>e.fecha===hoy());
 
   let avisos = generarAvisos();
+  const rGym = rachaGym();
   const rActivo = rachaDias(activoDia);
   const rAgua = rachaDias(iso=>(S.comida.vasosAgua[iso]||0)>=6);
 
@@ -211,12 +212,18 @@ function viewInicio(){
   ${avisos.map(a=>`<div class="banner ${a.tipo}">${a.html}</div>`).join('')}
 
   <div class="card">
-    <div class="lbl muted" style="font-size:12px;margin-bottom:12px">🔥 Tus rachas</div>
-    <div class="grid2" style="gap:10px">
-      <div style="text-align:center"><div style="font-size:30px;font-weight:800;line-height:1">${rActivo}</div><div class="sm muted" style="margin-top:4px">días seguidos activo 🔥</div></div>
-      <div style="text-align:center"><div style="font-size:30px;font-weight:800;line-height:1">${rAgua}</div><div class="sm muted" style="margin-top:4px">días de agua (≥6) 💧</div></div>
+    <div class="lbl muted" style="font-size:12px;margin-bottom:10px">🔥 Tus rachas</div>
+    <div style="text-align:center;padding:2px 0 12px;border-bottom:1px solid var(--line2)">
+      <div style="font-size:46px;font-weight:800;line-height:1;color:var(--gym)">${rGym}</div>
+      <div class="sm muted" style="margin-top:6px">🏋️ días de gym en racha</div>
     </div>
-    ${(rActivo>=3||rAgua>=3)?`<div class="banner ok" style="margin:12px 0 0">¡Vas con todo, ${esc(S.perfil.nombre)}! No rompas la racha. 💪</div>`:''}
+    <div class="grid2" style="gap:10px;margin-top:12px">
+      <div style="text-align:center"><div style="font-size:24px;font-weight:800;line-height:1">${rActivo}</div><div class="sm muted" style="margin-top:3px">activo 🔥</div></div>
+      <div style="text-align:center"><div style="font-size:24px;font-weight:800;line-height:1">${rAgua}</div><div class="sm muted" style="margin-top:3px">agua ≥6 💧</div></div>
+    </div>
+    ${rGym>=2
+      ? `<div class="banner ok" style="margin:12px 0 0">🔥 ¡${rGym} días de gym seguidos, ${esc(S.perfil.nombre)}! No rompas la racha. 💪</div>`
+      : `<div class="hint" style="margin-top:11px">La racha de gym cuenta los días que te toca entrenar (según tu rutina) y sí entrenas. Los días de descanso no la rompen.</div>`}
   </div>
 
   <div class="grid2">
@@ -463,6 +470,7 @@ function viewGym(){
   const entrenosSemana = S.gym.entrenos.filter(e=>enSemanaActual(e.fecha));
   const p = S.perfil;
 
+  const rGym = rachaGym();
   const rutinaRows = DIAS.slice(1).concat('domingo').map(d=>{
     const val = S.gym.rutina[d]||'';
     return `<div class="row">
@@ -483,6 +491,11 @@ function viewGym(){
   }).join('') : `<div class="empty small">Agrega tu creatina, omega 3, proteína…</div>`;
 
   return `
+  <div class="card" style="text-align:center">
+    <div class="lbl muted small">🔥 Racha de gym</div>
+    <div style="font-size:42px;font-weight:800;color:var(--gym);line-height:1;margin:7px 0 3px">${rGym}</div>
+    <div class="sm muted">días seguidos que te tocaba y sí entrenaste</div>
+  </div>
   <div class="grid2">
     <div class="stat"><div class="lbl">🏋️ Entrenos</div><div class="val">${entrenosSemana.length}<span style="font-size:13px;color:var(--mut)"> esta semana</span></div></div>
     <div class="stat"><div class="lbl">⏱️ Tiempo</div><div class="val">${Math.round(entrenosSemana.reduce((a,e)=>a+(e.duracion||0),0)/60*10)/10}<span style="font-size:13px;color:var(--mut)"> h</span></div></div>
@@ -874,6 +887,22 @@ function rachaDias(cumple){
     const iso=isoDe(d.getFullYear(), d.getMonth(), d.getDate());
     if(cumple(iso)) streak++;
     else if(i>0) break;          // que hoy aún no cuente no rompe la racha
+    d.setDate(d.getDate()-1);
+  }
+  return streak;
+}
+// Racha de GYM: cuenta los días que TOCABA entrenar (según tu rutina) y sí entrenaste.
+// Los días de descanso no cuentan ni rompen la racha. Hoy es "de gracia".
+function rachaGym(){
+  let streak=0; const d=new Date();
+  for(let i=0;i<400;i++){
+    const iso=isoDe(d.getFullYear(), d.getMonth(), d.getDate());
+    const diaSem = DIAS[d.getDay()];
+    const tocaEntrenar = !!((S.gym.rutina[diaSem]||'').trim());
+    if(tocaEntrenar){
+      if(S.gym.entrenos.some(e=>e.fecha===iso)) streak++;
+      else if(i>0) break;        // día de entreno pasado que se saltó → rompe
+    }
     d.setDate(d.getDate()-1);
   }
   return streak;
