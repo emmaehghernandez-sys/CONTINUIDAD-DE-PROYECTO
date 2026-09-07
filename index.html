@@ -108,7 +108,8 @@
     display:flex;justify-content:space-around;padding:9px 6px calc(env(safe-area-inset-bottom) + 9px)
   }
   nav button{background:none;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--mut2);font-size:10px;font-weight:600;flex:1;padding:4px;white-space:nowrap}
-  nav button .ni{font-size:22px;line-height:1}
+  nav button .ni{width:25px;height:25px;display:block;margin-bottom:1px}
+  nav button.on .ni{stroke:var(--acc)}
   nav button.on{color:var(--acc)}
 
   /* Modal / sheet */
@@ -179,12 +180,18 @@
 <main id="app"></main>
 
 <nav id="nav">
-  <button data-view="inicio" class="on" onclick="go('inicio')"><span class="ni">🏠</span>Inicio</button>
-  <button data-view="calendario" onclick="go('calendario')"><span class="ni">📅</span>Calendario</button>
-  <button data-view="dinero" onclick="go('dinero')"><span class="ni">💰</span>Dinero</button>
-  <button data-view="comida" onclick="go('comida')"><span class="ni">🍽️</span>Comida</button>
-  <button data-view="gym" onclick="go('gym')"><span class="ni">🏋️</span>Gym</button>
-  <button data-view="uni" onclick="go('uni')"><span class="ni">🎓</span>Uni</button>
+  <button data-view="inicio" class="on" onclick="go('inicio')">
+    <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M9.5 20v-5.5h5V20"/></svg>Inicio</button>
+  <button data-view="calendario" onclick="go('calendario')">
+    <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17"/><path d="M8 3.2v3.6M16 3.2v3.6"/></svg>Calendario</button>
+  <button data-view="dinero" onclick="go('dinero')">
+    <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 6.8v10.4"/><path d="M14.6 9.2c-.5-.9-1.5-1.3-2.6-1.3-1.5 0-2.6.8-2.6 2s1 1.7 2.6 2.1 2.6.9 2.6 2.1-1.1 2-2.6 2c-1.1 0-2.1-.4-2.6-1.3"/></svg>Dinero</button>
+  <button data-view="comida" onclick="go('comida')">
+    <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4M9.5 3v4M12 3v4M9.5 7v14M7 7h5"/><path d="M17.5 3c1.3 0 2 1.7 2 4.2s-.7 4-2 4V3z"/><path d="M17.5 11.2V21"/></svg>Comida</button>
+  <button data-view="gym" onclick="go('gym')">
+    <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 8.5v7M4 10v4M17.5 8.5v7M20 10v4M6.5 12h11"/></svg>Gym</button>
+  <button data-view="uni" onclick="go('uni')">
+    <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.5 8.5 12 13l9.5-4.5L12 4z"/><path d="M6.5 10.6V15c0 1.3 2.5 2.6 5.5 2.6s5.5-1.3 5.5-2.6v-4.4"/><path d="M21.5 8.7v4.8"/></svg>Uni</button>
 </nav>
 
 <div id="sheetRoot"></div>
