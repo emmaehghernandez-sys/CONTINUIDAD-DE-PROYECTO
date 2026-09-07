@@ -15,6 +15,8 @@ const money = n => '$' + Math.round(Number(n)||0).toLocaleString('es-MX');
 const clamp = (n,a,b) => Math.max(a, Math.min(b, n));
 const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 const DIAS_CORTO = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const isoDe = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 
 function inicioSemana(d = new Date()){            // lunes como inicio
   const x = new Date(d); const day = (x.getDay()+6)%7;
@@ -169,7 +171,7 @@ function agendaSugerida(){
    Router / Vistas
    ============================================================ */
 let vista = 'inicio';
-const TITULOS = {inicio:'Inicio', dinero:'Dinero', comida:'Comida', gym:'Gym', uni:'Universidad'};
+const TITULOS = {inicio:'Inicio', calendario:'Calendario', dinero:'Dinero', comida:'Comida', gym:'Gym', uni:'Universidad'};
 function go(v){
   vista = v;
   $$('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
@@ -182,7 +184,7 @@ function render(){
   const saludo = (()=>{ const h=new Date().getHours(); return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches'; })();
   $('#greeting').textContent = `${saludo}, ${S.perfil.nombre||'Emmanuel'}`;
   const el = $('#app');
-  el.innerHTML = ({inicio:viewInicio, dinero:viewDinero, comida:viewComida, gym:viewGym, uni:viewUni}[vista])();
+  el.innerHTML = ({inicio:viewInicio, calendario:viewCalendario, dinero:viewDinero, comida:viewComida, gym:viewGym, uni:viewUni}[vista])();
   el.className = 'view';
 }
 
@@ -525,6 +527,214 @@ function viewUni(){
     <div class="ic">✅</div><div class="mid"><div class="t" style="color:var(--mut);text-decoration:line-through">${esc(t.titulo)}</div><div class="s">${esc(t.materia||'')}</div></div>
   </div>`).join('')}</div>`:''}
   `;
+}
+
+/* ============================================================
+   CALENDARIO — resumen día a día de todo
+   ============================================================ */
+let calRef = new Date(); calRef.setDate(1); calRef.setHours(0,0,0,0);
+function calNav(delta){ calRef.setMonth(calRef.getMonth()+delta); render(); }
+function calHoy(){ const n=new Date(); calRef=new Date(n.getFullYear(),n.getMonth(),1); render(); }
+
+// Junta TODO lo que pasó en un día (dinero, comida, gym, uni)
+function datosDelDia(iso){
+  const gastos = S.finanzas.movs.filter(m=>m.fecha===iso);
+  const gastoTotal = gastos.reduce((a,m)=>a+m.monto,0);
+  const comidas = S.comida.registros.filter(r=>r.fecha===iso);
+  const agua = S.comida.vasosAgua[iso]||0;
+  const entreno = S.gym.entrenos.find(e=>e.fecha===iso)||null;
+  const tomas = S.gym.tomas.filter(t=>t.fecha===iso);
+  const tareas = S.uni.tareas.filter(t=>t.fecha===iso);
+  return {gastos, gastoTotal, comidas, agua, entreno, tomas, tareas};
+}
+
+function viewCalendario(){
+  const y = calRef.getFullYear(), m = calRef.getMonth();
+  const primero = new Date(y, m, 1);
+  const offset = (primero.getDay()+6)%7;              // lunes = 0
+  const dias = new Date(y, m+1, 0).getDate();
+  const hoyISO = hoy();
+  const mesKey = `${y}-${String(m+1).padStart(2,'0')}`;
+  const enMes = iso => iso && iso.slice(0,7)===mesKey;
+
+  const gastoMes = S.finanzas.movs.filter(x=>enMes(x.fecha)).reduce((a,x)=>a+x.monto,0);
+  const entrenosMes = S.gym.entrenos.filter(x=>enMes(x.fecha)).length;
+
+  const dow = ['L','M','X','J','V','S','D'];
+  let cells = '';
+  for(let i=0;i<offset;i++) cells += `<div class="cal-cell out"></div>`;
+  for(let d=1; d<=dias; d++){
+    const iso = isoDe(y,m,d);
+    const dd = datosDelDia(iso);
+    const dots = [];
+    if(dd.gastos.length)  dots.push('var(--money)');
+    if(dd.comidas.length||dd.agua>0) dots.push('var(--food)');
+    if(dd.entreno)        dots.push('var(--gym)');
+    if(dd.tareas.length)  dots.push('var(--uni)');
+    const has = dots.length>0;
+    cells += `<div class="cal-cell ${iso===hoyISO?'today':''} ${has?'has':''}"${has?` onclick="sheetDia('${iso}')"`:''}>
+      <div class="cal-num">${d}</div>
+      <div class="cal-dots">${dots.map(c=>`<span class="cal-dot" style="background:${c}"></span>`).join('')}</div>
+      ${dd.gastoTotal>0?`<div class="cal-spend">${money(dd.gastoTotal)}</div>`:''}
+    </div>`;
+  }
+
+  return `
+  <div class="cal-head">
+    <div class="cal-nav"><button onclick="calNav(-1)">‹</button></div>
+    <h2>${MESES[m]} ${y}</h2>
+    <div class="cal-nav"><button onclick="calNav(1)">›</button></div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:6px">
+    <div class="stat"><div class="lbl">💰 Gastado en el mes</div><div class="val" style="color:var(--money);font-size:22px">${money(gastoMes)}</div></div>
+    <div class="stat"><div class="lbl">🏋️ Entrenos</div><div class="val" style="font-size:22px">${entrenosMes}<span style="font-size:13px;color:var(--mut)"> este mes</span></div></div>
+  </div>
+
+  <button class="btn" onclick="analizarMes()" style="margin-bottom:12px">✦ Analizar mi mes con el Coach</button>
+
+  <div class="card" style="padding:14px 11px">
+    <div class="cal-grid" style="margin-bottom:8px">${dow.map(d=>`<div class="cal-dow">${d}</div>`).join('')}</div>
+    <div class="cal-grid">${cells}</div>
+    <div class="cal-legend">
+      <span><i style="background:var(--money)"></i>Dinero</span>
+      <span><i style="background:var(--food)"></i>Comida</span>
+      <span><i style="background:var(--gym)"></i>Gym</span>
+      <span><i style="background:var(--uni)"></i>Uni</span>
+    </div>
+  </div>
+  <div style="margin-bottom:12px"><button class="btn sm sec" onclick="calHoy()">Ir a hoy</button></div>
+  <div class="hint center">Toca un día con puntitos para ver todo lo que pasó ese día. 📅</div>
+  `;
+}
+
+function sheetDia(iso){
+  const dd = datosDelDia(iso);
+  const cats = S.finanzas.cats;
+  const f = new Date(iso+'T12:00:00');
+  const titulo = f.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+  const nombreComida = {desayuno:'🌅 Desayuno', almuerzo:'☀️ Almuerzo', cena:'🌙 Cena'};
+
+  const dineroHtml = dd.gastos.length ? `
+    <div class="row" style="padding:6px 0;border-bottom:1px solid var(--line2)"><div class="mid"><b>Total del día</b></div><div class="amt" style="color:var(--bad)">-${money(dd.gastoTotal)}</div></div>
+    ${dd.gastos.slice().sort((a,b)=>b.ts-a.ts).map(mv=>{
+      const c = cats.find(x=>x.id===mv.cat)||{icono:'💸',nombre:'Gasto',color:'#8b98a9'};
+      return `<div class="row"><div class="ic" style="background:${c.color}22">${c.icono}</div>
+        <div class="mid"><div class="t">${esc(mv.nota||c.nombre)}</div><div class="s">${esc(c.nombre)}</div></div>
+        <div class="amt" style="color:var(--bad)">-${money(mv.monto)}</div></div>`;
+    }).join('')}` : `<div class="empty small">Sin gastos este día.</div>`;
+
+  const comidaHtml = (dd.comidas.length||dd.agua) ? `
+    ${dd.comidas.map(r=>`<div class="row"><div class="ic" style="background:rgba(197,106,52,.14)">🍽️</div>
+      <div class="mid"><div class="t">${esc(r.texto||nombreComida[r.comida]||'Comida')}</div><div class="s">${nombreComida[r.comida]||''}</div></div></div>`).join('')}
+    ${dd.agua?`<div class="row"><div class="ic" style="background:rgba(31,151,168,.14)">💧</div><div class="mid"><div class="t">${dd.agua} vaso(s) de agua</div></div></div>`:''}
+  ` : `<div class="empty small">Sin comidas registradas.</div>`;
+
+  const supNombres = dd.tomas.map(t=>{ const s=S.gym.suplementos.find(x=>x.id===t.sup); return s?s.nombre:null; }).filter(Boolean);
+  const gymHtml = (dd.entreno||supNombres.length) ? `
+    ${dd.entreno?`<div class="row"><div class="ic" style="background:rgba(106,79,208,.14)">🔥</div>
+      <div class="mid"><div class="t">${esc(dd.entreno.nota||'Entreno')}</div><div class="s">${dd.entreno.duracion||0} min · ${esc(dd.entreno.intensidad||'')}</div></div></div>`:''}
+    ${supNombres.length?`<div class="row"><div class="ic" style="background:rgba(106,79,208,.14)">💊</div><div class="mid"><div class="t">${esc(supNombres.join(', '))}</div><div class="s">suplementos tomados</div></div></div>`:''}
+  ` : `<div class="empty small">Sin entreno este día.</div>`;
+
+  const uniHtml = dd.tareas.length ? dd.tareas.map(t=>`<div class="row"><div class="ic" style="background:rgba(31,151,168,.14)">${t.estado==='hecha'?'✅':'📌'}</div>
+    <div class="mid"><div class="t" style="${t.estado==='hecha'?'text-decoration:line-through;color:var(--mut)':''}">${esc(t.titulo)}</div><div class="s">${esc(t.materia||'')} · vence este día</div></div></div>`).join('')
+    : `<div class="empty small">Sin tareas para este día.</div>`;
+
+  openSheet(`<h3 style="text-transform:capitalize;font-size:21px">${titulo}</h3>
+    <div class="sectitle" style="margin:12px 2px 6px"><h2 style="font-size:16px;color:var(--money)">💰 Dinero</h2></div>
+    <div class="card" style="margin-bottom:6px">${dineroHtml}</div>
+    <div class="sectitle" style="margin:12px 2px 6px"><h2 style="font-size:16px;color:var(--food)">🍽️ Comida</h2></div>
+    <div class="card" style="margin-bottom:6px">${comidaHtml}</div>
+    <div class="sectitle" style="margin:12px 2px 6px"><h2 style="font-size:16px;color:var(--gym)">🏋️ Gym</h2></div>
+    <div class="card" style="margin-bottom:6px">${gymHtml}</div>
+    <div class="sectitle" style="margin:12px 2px 6px"><h2 style="font-size:16px;color:var(--uni)">🎓 Universidad</h2></div>
+    <div class="card" style="margin-bottom:6px">${uniHtml}</div>
+    <button class="btn sec" onclick="closeSheet()" style="margin-top:8px">Cerrar</button>`);
+}
+
+/* ---------- Análisis del mes con el Coach (IA) ---------- */
+function resumenMesParaCoach(ref = calRef){
+  const y = ref.getFullYear(), m = ref.getMonth();
+  const mesKey = `${y}-${String(m+1).padStart(2,'0')}`;
+  const enMes = iso => iso && iso.slice(0,7)===mesKey;
+  const cats = S.finanzas.cats;
+
+  // Dinero del mes por categoría
+  const movsMes = S.finanzas.movs.filter(x=>enMes(x.fecha));
+  const gastoMes = movsMes.reduce((a,x)=>a+x.monto,0);
+  const porCat = {};
+  movsMes.forEach(mv=>{ porCat[mv.cat]=(porCat[mv.cat]||0)+mv.monto; });
+  const catTxt = Object.entries(porCat).sort((a,b)=>b[1]-a[1])
+    .map(([id,v])=>`${(cats.find(c=>c.id===id)||{nombre:id}).nombre}: ${money(v)}`).join(', ')||'sin gastos';
+  const presupuestoMes = (S.finanzas.semanal||0)*4.33;
+
+  // Top gastos individuales
+  const topGastos = movsMes.slice().sort((a,b)=>b.monto-a.monto).slice(0,6)
+    .map(mv=>`${money(mv.monto)} en ${mv.nota||(cats.find(c=>c.id===mv.cat)||{}).nombre||'gasto'}`).join('; ')||'—';
+
+  // Gym
+  const entrenosMes = S.gym.entrenos.filter(x=>enMes(x.fecha));
+  const minsGym = entrenosMes.reduce((a,e)=>a+(e.duracion||0),0);
+
+  // Comida y agua
+  const comidasMes = S.comida.registros.filter(x=>enMes(x.fecha)).length;
+  const diasConAgua = Object.keys(S.comida.vasosAgua).filter(enMes).length;
+
+  // Uni
+  const tareasMes = S.uni.tareas.filter(x=>enMes(x.fecha));
+  const hechas = tareasMes.filter(t=>t.estado==='hecha').length;
+  const pend = tareasMes.filter(t=>t.estado!=='hecha').length;
+
+  const p = S.perfil;
+  return `Análisis del mes de ${MESES[m]} ${y} para ${p.nombre}.
+PERFIL: ${p.edad||'?'} años, ${p.pesoActual||'?'}kg, meta ${p.pesoMeta||'?'}kg, objetivo ${p.objetivo}.
+DINERO — presupuesto ~${money(presupuestoMes)}/mes (${money(S.finanzas.semanal)}/semana). Gastado en el mes: ${money(gastoMes)}. Por categoría: ${catTxt}. Gastos más grandes: ${topGastos}.
+GYM — ${entrenosMes.length} entrenos, ${Math.round(minsGym/60*10)/10} horas totales en el mes.
+COMIDA — ${comidasMes} comidas registradas, ${diasConAgua} días con registro de agua.
+UNIVERSIDAD — ${tareasMes.length} tareas (${hechas} hechas, ${pend} pendientes).`;
+}
+
+async function analizarMes(){
+  if(!S.ajustes.apiKey){ openCoach(); return; }   // manda a activar la key
+  const mesNom = `${MESES[calRef.getMonth()]} ${calRef.getFullYear()}`;
+  openSheet(`<h3>✦ Análisis de ${esc(mesNom)}</h3>
+    <p class="hint">El Coach está revisando tu dinero, comida, gym y uni de este mes para decirte en qué vas bien, en qué cuidarte y cuánto podrías ahorrar.</p>
+    <div id="amResp"><div class="card"><span class="spin"></span> <span class="muted">Analizando tu mes…</span></div></div>
+    <button class="btn sec" onclick="closeSheet()" style="margin-top:12px">Cerrar</button>`);
+
+  const resp = $('#amResp');
+  const system = `Eres el coach personal de ${S.perfil.nombre} en su app de vida. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Te paso el resumen REAL de su mes (dinero, comida, gym, universidad). Dale un análisis honesto y accionable con esta estructura, usando encabezados cortos:
+1) ✅ En qué va bien.
+2) ⚠️ En qué está fallando o debe cuidarse (sé específico con el dinero: categorías donde se le va de más, gastos hormiga).
+3) 💰 Ahorro: dile un monto concreto y realista que podría ahorrar al mes y de dónde recortar.
+4) 🚫 Qué es mejor NO hacer.
+5) 🎯 3 acciones claras para el próximo mes.
+Usa números concretos de los datos. Máx ~230 palabras. No des consejo médico serio.`;
+
+  const body = {
+    model: S.ajustes.modelo || 'claude-haiku-4-5',
+    max_tokens: 1200,
+    system,
+    messages: [{ role:'user', content: 'Analiza mi mes con estos datos:\n\n'+resumenMesParaCoach() }]
+  };
+
+  try{
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':S.ajustes.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify(body)
+    });
+    const data = await r.json();
+    if(data.error){
+      resp.innerHTML = `<div class="banner warn">Error: ${esc(data.error.message||'algo falló')}. Revisa tu API key en Ajustes.</div>`;
+    } else {
+      const txt = (data.content||[]).map(c=>c.text||'').join('\n').trim() || 'No obtuve respuesta, intenta de nuevo.';
+      resp.innerHTML = `<div class="card coachmsg">✦ ${esc(txt)}</div>`;
+    }
+  }catch(err){
+    resp.innerHTML = `<div class="banner warn">No pude conectar. Revisa tu internet y tu API key. (${esc(String(err.message||err))})</div>`;
+  }
 }
 
 /* ============================================================
