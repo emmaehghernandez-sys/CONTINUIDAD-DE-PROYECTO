@@ -55,6 +55,7 @@ const DEFAULT = {
   gym: { rutina:{lunes:'',martes:'',miércoles:'',jueves:'',viernes:'',sábado:'',domingo:''},
          entrenos:[], suplementos:[], tomas:[] },
   uni: { tareas:[] },
+  progreso: { pesos:[] },
   recordatorios: [],
   ajustes: { apiKey:'', modelo:'claude-haiku-4-5', notifOk:false, webBuscar:true },
   onboarded:false,
@@ -203,9 +204,20 @@ function viewInicio(){
   const yaEntreno = S.gym.entrenos.some(e=>e.fecha===hoy());
 
   let avisos = generarAvisos();
+  const rActivo = rachaDias(activoDia);
+  const rAgua = rachaDias(iso=>(S.comida.vasosAgua[iso]||0)>=6);
 
   return `
   ${avisos.map(a=>`<div class="banner ${a.tipo}">${a.html}</div>`).join('')}
+
+  <div class="card">
+    <div class="lbl muted" style="font-size:12px;margin-bottom:12px">🔥 Tus rachas</div>
+    <div class="grid2" style="gap:10px">
+      <div style="text-align:center"><div style="font-size:30px;font-weight:800;line-height:1">${rActivo}</div><div class="sm muted" style="margin-top:4px">días seguidos activo 🔥</div></div>
+      <div style="text-align:center"><div style="font-size:30px;font-weight:800;line-height:1">${rAgua}</div><div class="sm muted" style="margin-top:4px">días de agua (≥6) 💧</div></div>
+    </div>
+    ${(rActivo>=3||rAgua>=3)?`<div class="banner ok" style="margin:12px 0 0">¡Vas con todo, ${esc(S.perfil.nombre)}! No rompas la racha. 💪</div>`:''}
+  </div>
 
   <div class="grid2">
     <div class="stat">
@@ -354,6 +366,8 @@ function viewDinero(){
     <div style="margin-top:8px"><button class="btn sm" onclick="aplicarReparto()">Aplicar este reparto</button></div>
   </div>
 
+  ${graficaGastos()}
+
   <div class="sectitle"><h2>Categorías</h2><button class="addbtn" onclick="sheetCategoria()">+</button></div>
   ${catRows}
 
@@ -416,6 +430,8 @@ function viewComida(){
              : `Quieres <b>bajar ${Math.abs(dif)} kg</b>. Vas en déficit controlado: cuida las porciones y la proteína.`}
     </div>`:''}
   </div>
+
+  ${graficaPeso()}
 
   <div class="banner info">
     <b>Meta de hoy:</b> ${nut.cal} kcal · ${nut.prot}g proteína · ${nut.carbs}g carbos · ${nut.grasa}g grasa.
@@ -621,19 +637,22 @@ function sheetDia(iso){
       const c = cats.find(x=>x.id===mv.cat)||{icono:'💸',nombre:'Gasto',color:'#8b98a9'};
       return `<div class="row"><div class="ic" style="background:${c.color}22">${c.icono}</div>
         <div class="mid"><div class="t">${esc(mv.nota||c.nombre)}</div><div class="s">${esc(c.nombre)}</div></div>
-        <div class="amt" style="color:var(--bad)">-${money(mv.monto)}</div></div>`;
+        <div class="amt" style="color:var(--bad)">-${money(mv.monto)}</div>
+        <button class="addbtn" style="margin-left:6px" onclick="borrarDelDia('gasto','${mv.id}','${iso}')">×</button></div>`;
     }).join('')}` : `<div class="empty small">Sin gastos este día.</div>`;
 
   const comidaHtml = (dd.comidas.length||dd.agua) ? `
     ${dd.comidas.map(r=>`<div class="row"><div class="ic" style="background:rgba(197,106,52,.14)">🍽️</div>
-      <div class="mid"><div class="t">${esc(r.texto||nombreComida[r.comida]||'Comida')}</div><div class="s">${nombreComida[r.comida]||''}</div></div></div>`).join('')}
+      <div class="mid"><div class="t">${esc(r.texto||nombreComida[r.comida]||'Comida')}</div><div class="s">${nombreComida[r.comida]||''}</div></div>
+      <button class="addbtn" style="margin-left:6px" onclick="borrarDelDia('comida','${r.id}','${iso}')">×</button></div>`).join('')}
     ${dd.agua?`<div class="row"><div class="ic" style="background:rgba(31,151,168,.14)">💧</div><div class="mid"><div class="t">${dd.agua} vaso(s) de agua</div></div></div>`:''}
   ` : `<div class="empty small">Sin comidas registradas.</div>`;
 
   const supNombres = dd.tomas.map(t=>{ const s=S.gym.suplementos.find(x=>x.id===t.sup); return s?s.nombre:null; }).filter(Boolean);
   const gymHtml = (dd.entreno||supNombres.length) ? `
     ${dd.entreno?`<div class="row"><div class="ic" style="background:rgba(106,79,208,.14)">🔥</div>
-      <div class="mid"><div class="t">${esc(dd.entreno.nota||'Entreno')}</div><div class="s">${dd.entreno.duracion||0} min · ${esc(dd.entreno.intensidad||'')}</div></div></div>`:''}
+      <div class="mid"><div class="t">${esc(dd.entreno.nota||'Entreno')}</div><div class="s">${dd.entreno.duracion||0} min · ${esc(dd.entreno.intensidad||'')}</div></div>
+      <button class="addbtn" style="margin-left:6px" onclick="borrarDelDia('entreno','${dd.entreno.id}','${iso}')">×</button></div>`:''}
     ${supNombres.length?`<div class="row"><div class="ic" style="background:rgba(106,79,208,.14)">💊</div><div class="mid"><div class="t">${esc(supNombres.join(', '))}</div><div class="s">suplementos tomados</div></div></div>`:''}
   ` : `<div class="empty small">Sin entreno este día.</div>`;
 
@@ -642,6 +661,18 @@ function sheetDia(iso){
     : `<div class="empty small">Sin tareas para este día.</div>`;
 
   openSheet(`<h3 style="text-transform:capitalize;font-size:21px">${titulo}</h3>
+    <div class="grid2" style="margin:4px 0 8px">
+      <button class="btn sm sec" onclick="sheetGasto('${iso}',true)">💸 Gasto</button>
+      <button class="btn sm sec" onclick="sheetComida('${iso}',true)">🍽️ Comida</button>
+      <button class="btn sm sec" onclick="sheetEntreno('${iso}',true)">🏋️ Entreno</button>
+      <button class="btn sm sec" onclick="sheetTarea('${iso}',true)">🎓 Tarea</button>
+    </div>
+    <div class="card" style="margin-bottom:6px;padding:13px 14px">
+      <div class="kpi" style="justify-content:space-between">
+        <div style="font-weight:700">💧 Agua: ${dd.agua} vaso(s)</div>
+        <div class="chips"><button class="chip" onclick="aguaDia(-1,'${iso}')">−</button><button class="chip on" onclick="aguaDia(1,'${iso}')">＋ vaso</button></div>
+      </div>
+    </div>
     <div class="sectitle" style="margin:12px 2px 6px"><h2 style="font-size:16px;color:var(--money)">💰 Dinero</h2></div>
     <div class="card" style="margin-bottom:6px">${dineroHtml}</div>
     <div class="sectitle" style="margin:12px 2px 6px"><h2 style="font-size:16px;color:var(--food)">🍽️ Comida</h2></div>
@@ -651,6 +682,16 @@ function sheetDia(iso){
     <div class="sectitle" style="margin:12px 2px 6px"><h2 style="font-size:16px;color:var(--uni)">🎓 Universidad</h2></div>
     <div class="card" style="margin-bottom:6px">${uniHtml}</div>
     <button class="btn sec" onclick="closeSheet()" style="margin-top:8px">Cerrar</button>`);
+}
+function borrarDelDia(tipo, id, iso){
+  if(tipo==='gasto')   S.finanzas.movs = S.finanzas.movs.filter(m=>m.id!==id);
+  else if(tipo==='comida')  S.comida.registros = S.comida.registros.filter(r=>r.id!==id);
+  else if(tipo==='entreno') S.gym.entrenos = S.gym.entrenos.filter(e=>e.id!==id);
+  save(); render(); sheetDia(iso);
+}
+function aguaDia(d, iso){
+  S.comida.vasosAgua[iso] = Math.max(0,(S.comida.vasosAgua[iso]||0)+d);
+  save(); render(); sheetDia(iso);
 }
 
 /* ---------- Análisis del mes con el Coach (IA) ---------- */
@@ -738,6 +779,107 @@ Usa números concretos de los datos. Máx ~230 palabras. No des consejo médico 
 }
 
 /* ============================================================
+   GRÁFICAS DE PROGRESO (peso y gastos) — SVG en línea, sin librerías
+   ============================================================ */
+function svgLinea(vals, {h=120, color='var(--gym)', meta=null}={}){
+  const w=320, pad=12, iw=w-pad*2, ih=h-pad*2;
+  let min=Math.min(...vals), max=Math.max(...vals);
+  if(meta!=null){ min=Math.min(min,meta); max=Math.max(max,meta); }
+  if(min===max){ min-=1; max+=1; }
+  const X=i=> vals.length>1 ? pad+i/(vals.length-1)*iw : pad+iw/2;
+  const Y=v=> pad+ih-(v-min)/(max-min)*ih;
+  const d=vals.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  const dots=vals.map((v,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3.2" fill="${color}"/>`).join('');
+  const metaLine = meta!=null ? `<line x1="${pad}" y1="${Y(meta).toFixed(1)}" x2="${w-pad}" y2="${Y(meta).toFixed(1)}" stroke="var(--ok)" stroke-dasharray="4 4" stroke-width="1.2"/>` : '';
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none">
+    ${metaLine}<path d="${d}" fill="none" stroke="${color}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>${dots}</svg>`;
+}
+function svgBarras(items, {h=140, color='var(--money)'}={}){
+  const w=320, pad=6, gap=8, n=items.length||1;
+  const max=Math.max(1, ...items.map(i=>i.v));
+  const bw=(w-pad*2-gap*(n-1))/n, ih=h-22;
+  const bars=items.map((it,i)=>{
+    const bh=Math.max(2, it.v/max*ih);
+    const x=pad+i*(bw+gap), y=ih-bh+2;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${color}"/>
+      <text x="${(x+bw/2).toFixed(1)}" y="${(h-6)}" font-size="9" text-anchor="middle" fill="var(--mut)" font-family="var(--serif)">${esc(it.label)}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${bars}</svg>`;
+}
+
+function graficaPeso(){
+  const ps = ((S.progreso&&S.progreso.pesos)||[]).slice().sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const meta = S.perfil.pesoMeta||null;
+  const cuerpo = ps.length>=2
+    ? svgLinea(ps.map(p=>p.peso),{color:'var(--gym)',meta}) +
+      `<div class="hint" style="margin-top:8px">De <b>${ps[0].peso}kg</b> a <b>${ps[ps.length-1].peso}kg</b>${meta?` · meta ${meta}kg (línea punteada)`:''}.</div>`
+    : `<div class="empty small">Registra tu peso al menos 2 veces (en días distintos) para ver tu avance. 📈</div>`;
+  return `<div class="card">
+    <div class="kpi" style="justify-content:space-between;margin-bottom:10px">
+      <div class="lbl muted small">⚖️ Progreso de peso</div>
+      <button class="btn sm sec" onclick="sheetPeso()">Registrar peso</button>
+    </div>
+    ${cuerpo}
+  </div>`;
+}
+function graficaGastos(){
+  const now=new Date(); const items=[];
+  for(let k=5;k>=0;k--){
+    const d=new Date(now.getFullYear(), now.getMonth()-k, 1);
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const total=S.finanzas.movs.filter(m=>m.fecha && m.fecha.slice(0,7)===key).reduce((a,m)=>a+m.monto,0);
+    items.push({label:MESES[d.getMonth()].slice(0,3), v:total});
+  }
+  const hay=items.some(i=>i.v>0);
+  return `<div class="card">
+    <div class="lbl muted small" style="margin-bottom:10px">📊 Gastos por mes (últimos 6)</div>
+    ${hay? svgBarras(items,{color:'var(--money)'}) : `<div class="empty small">Registra gastos para ver tu tendencia por mes.</div>`}
+  </div>`;
+}
+function sheetPeso(){
+  volverADia = null;
+  openSheet(`<h3>Registrar peso</h3>
+    <label class="f">¿Cuánto pesas? (kg)</label>
+    <input class="in" id="wPeso" type="number" inputmode="decimal" value="${S.perfil.pesoActual||''}" placeholder="70">
+    <label class="f">Fecha</label>
+    <input class="in" id="wFecha" type="date" value="${hoy()}">
+    <div style="margin-top:16px"><button class="btn" onclick="guardarPeso()">Guardar peso</button></div>`);
+  setTimeout(()=>$('#wPeso').focus(),100);
+}
+function guardarPeso(){
+  const peso = Number($('#wPeso').value); if(!peso) return;
+  const fecha = $('#wFecha').value||hoy();
+  if(!S.progreso) S.progreso={pesos:[]};
+  const i = S.progreso.pesos.findIndex(x=>x.fecha===fecha);
+  if(i>=0) S.progreso.pesos[i].peso=peso; else S.progreso.pesos.push({fecha, peso, ts:Date.now()});
+  // el peso actual = el registro más reciente por fecha
+  const ult = S.progreso.pesos.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)).pop();
+  if(ult) S.perfil.pesoActual = ult.peso;
+  save(); closeSheet(); render(); toast('Peso guardado ✓');
+}
+
+/* ============================================================
+   RACHAS / MOTIVACIÓN
+   ============================================================ */
+function activoDia(iso){
+  return S.finanzas.movs.some(m=>m.fecha===iso)
+    || S.comida.registros.some(r=>r.fecha===iso)
+    || S.gym.entrenos.some(e=>e.fecha===iso)
+    || (S.comida.vasosAgua[iso]||0)>0
+    || S.gym.tomas.some(t=>t.fecha===iso);
+}
+function rachaDias(cumple){
+  let streak=0; const d=new Date();
+  for(let i=0;i<400;i++){
+    const iso=isoDe(d.getFullYear(), d.getMonth(), d.getDate());
+    if(cumple(iso)) streak++;
+    else if(i>0) break;          // que hoy aún no cuente no rompe la racha
+    d.setDate(d.getDate()-1);
+  }
+  return streak;
+}
+
+/* ============================================================
    SHEETS (formularios emergentes)
    ============================================================ */
 function openSheet(html){
@@ -745,6 +887,13 @@ function openSheet(html){
     <div class="sheet"><div class="grip"></div>${html}</div></div>`;
 }
 function closeSheet(){ $('#sheetRoot').innerHTML=''; }
+
+// Si un formulario se abrió desde un día del calendario, al guardar volvemos a ese día.
+let volverADia = null;
+function finSheet(){
+  if(volverADia){ const d=volverADia; volverADia=null; render(); sheetDia(d); }
+  else { closeSheet(); render(); }
+}
 
 function sheetSemanal(){
   openSheet(`<h3>Dinero de la semana</h3>
@@ -755,7 +904,8 @@ function sheetSemanal(){
 }
 function guardarSemanal(){ S.finanzas.semanal = Number($('#fSem').value)||0; save(); closeSheet(); render(); }
 
-function sheetGasto(){
+function sheetGasto(fecha=hoy(), volver=false){
+  volverADia = volver ? fecha : null;
   const cats = S.finanzas.cats;
   openSheet(`<h3>Registrar gasto</h3>
     <label class="f">Monto</label>
@@ -766,6 +916,8 @@ function sheetGasto(){
     </div>
     <label class="f">Nota (opcional)</label>
     <input class="in" id="gNota" placeholder="ej. café, taxi, super…">
+    <label class="f">Fecha</label>
+    <input class="in" id="gFecha" type="date" value="${fecha}">
     <div style="margin-top:16px"><button class="btn" onclick="guardarGasto()">Guardar gasto</button></div>`);
   setTimeout(()=>$('#gMonto').focus(),100);
 }
@@ -774,8 +926,9 @@ function guardarGasto(){
   const monto = Number($('#gMonto').value);
   if(!monto){ $('#gMonto').focus(); return; }
   const cat = $('#gCats .chip.on')?.dataset.cat || 'otros';
-  S.finanzas.movs.push({id:uid(), monto, cat, nota:$('#gNota').value.trim(), fecha:hoy(), ts:Date.now()});
-  save(); closeSheet(); render();
+  const fecha = $('#gFecha')?.value || hoy();
+  S.finanzas.movs.push({id:uid(), monto, cat, nota:$('#gNota').value.trim(), fecha, ts:Date.now()});
+  save(); finSheet();
 }
 
 function sheetCategoria(){
@@ -817,7 +970,8 @@ function borrarMov(id, reopen){
   if(reopen) closeSheet(); render();
 }
 
-function sheetComida(){
+function sheetComida(fecha=hoy(), volver=false){
+  volverADia = volver ? fecha : null;
   openSheet(`<h3>Registrar comida</h3>
     <label class="f">¿Cuál comida?</label>
     <div class="seg" id="cComida">
@@ -827,13 +981,16 @@ function sheetComida(){
     </div>
     <label class="f">¿Qué comiste? (opcional)</label>
     <input class="in" id="cTexto" placeholder="ej. pechuga con arroz y ensalada">
+    <label class="f">Fecha</label>
+    <input class="in" id="cFecha" type="date" value="${fecha}">
     <div style="margin-top:16px"><button class="btn" onclick="guardarComidaLibre()">Guardar</button></div>`);
 }
 function selSeg(el,cont){ $$(`#${cont} button`).forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
 function guardarComidaLibre(){
   const comida = $('#cComida .on').dataset.c;
-  S.comida.registros.push({id:uid(), comida, texto:$('#cTexto').value.trim(), fecha:hoy(), ts:Date.now()});
-  save(); closeSheet(); render();
+  const fecha = $('#cFecha')?.value || hoy();
+  S.comida.registros.push({id:uid(), comida, texto:$('#cTexto').value.trim(), fecha, ts:Date.now()});
+  save(); finSheet();
 }
 function registrarComida(comida, nombre){
   S.comida.registros.push({id:uid(), comida, texto:nombre, fecha:hoy(), ts:Date.now()});
@@ -844,11 +1001,12 @@ function agua(d){
   const k = hoy(); S.comida.vasosAgua[k] = Math.max(0,(S.comida.vasosAgua[k]||0)+d); save(); render();
 }
 
-function sheetEntreno(){
-  const diaHoy = DIAS[new Date().getDay()];
+function sheetEntreno(fecha=hoy(), volver=false){
+  volverADia = volver ? fecha : null;
+  const diaSem = DIAS[new Date(fecha+'T12:00:00').getDay()];
   openSheet(`<h3>Registrar entreno</h3>
     <label class="f">¿Qué entrenaste?</label>
-    <input class="in" id="eNota" value="${esc(S.gym.rutina[diaHoy]||'')}" placeholder="ej. Pecho, tríceps y bíceps">
+    <input class="in" id="eNota" value="${esc(S.gym.rutina[diaSem]||'')}" placeholder="ej. Pecho, tríceps y bíceps">
     <label class="f">Duración (minutos)</label>
     <input class="in" id="eDur" type="number" inputmode="numeric" value="90" placeholder="90">
     <label class="f">Intensidad</label>
@@ -857,16 +1015,19 @@ function sheetEntreno(){
       <button class="on" data-i="normal" onclick="selSeg(this,'eInt')">Normal</button>
       <button data-i="fuerte" onclick="selSeg(this,'eInt')">Fuerte 🔥</button>
     </div>
+    <label class="f">Fecha</label>
+    <input class="in" id="eFecha" type="date" value="${fecha}">
     <div style="margin-top:16px"><button class="btn" onclick="guardarEntreno()">Guardar entreno</button></div>`);
 }
 function guardarEntreno(){
+  const fecha = $('#eFecha')?.value || hoy();
   const nota = $('#eNota').value.trim();
   const dur = Number($('#eDur').value)||0;
   const intensidad = $('#eInt .on').dataset.i;
-  const existe = S.gym.entrenos.find(e=>e.fecha===hoy());
+  const existe = S.gym.entrenos.find(e=>e.fecha===fecha);
   if(existe) Object.assign(existe,{nota,duracion:dur,intensidad});
-  else S.gym.entrenos.push({id:uid(), fecha:hoy(), nota, duracion:dur, intensidad, ts:Date.now()});
-  save(); closeSheet(); render();
+  else S.gym.entrenos.push({id:uid(), fecha, nota, duracion:dur, intensidad, ts:Date.now()});
+  save(); finSheet();
 }
 function borrarEntreno(id){ S.gym.entrenos = S.gym.entrenos.filter(e=>e.id!==id); save(); render(); }
 
@@ -900,21 +1061,22 @@ function toggleToma(id){
   save(); render();
 }
 
-function sheetTarea(){
+function sheetTarea(fecha=hoy(), volver=false){
+  volverADia = volver ? fecha : null;
   openSheet(`<h3>Nueva tarea</h3>
     <label class="f">Título</label>
     <input class="in" id="tTit" placeholder="ej. Ensayo de historia">
     <label class="f">Materia</label>
     <input class="in" id="tMat" placeholder="ej. Historia">
     <label class="f">Fecha límite</label>
-    <input class="in" id="tFec" type="date" value="${hoy()}">
+    <input class="in" id="tFec" type="date" value="${fecha}">
     <div style="margin-top:16px"><button class="btn" onclick="guardarTarea()">Agregar tarea</button></div>`);
   setTimeout(()=>$('#tTit').focus(),100);
 }
 function guardarTarea(){
   const titulo = $('#tTit').value.trim(); if(!titulo) return;
   S.uni.tareas.push({id:uid(), titulo, materia:$('#tMat').value.trim(), fecha:$('#tFec').value, estado:'pend', ts:Date.now()});
-  save(); closeSheet(); render();
+  save(); finSheet();
 }
 function tareaHecha(id){ const t=S.uni.tareas.find(x=>x.id===id); if(t)t.estado='hecha'; save(); render(); }
 function borrarTarea(id){ S.uni.tareas = S.uni.tareas.filter(t=>t.id!==id); save(); render(); }
@@ -987,7 +1149,13 @@ function guardarAjustes(){
   p.sexo = $('#pSexo .on')?.dataset.s || p.sexo;
   p.edad = Number($('#pEdad').value)||null;
   p.altura = Number($('#pAlt').value)||null;
-  p.pesoActual = Number($('#pPeso').value)||null;
+  const nuevoPeso = Number($('#pPeso').value)||null;
+  if(nuevoPeso && nuevoPeso!==p.pesoActual){
+    if(!S.progreso) S.progreso={pesos:[]};
+    const i=S.progreso.pesos.findIndex(x=>x.fecha===hoy());
+    if(i>=0) S.progreso.pesos[i].peso=nuevoPeso; else S.progreso.pesos.push({fecha:hoy(), peso:nuevoPeso, ts:Date.now()});
+  }
+  p.pesoActual = nuevoPeso;
   p.pesoMeta = Number($('#pMeta').value)||null;
   p.objetivo = $('#pObj').value;
   p.actividad = $('#pAct').value;
@@ -1056,6 +1224,7 @@ function terminarOnboard(){
   p.edad = Number($('#oEdad').value)||null;
   p.altura = Number($('#oAlt').value)||null;
   p.pesoActual = Number($('#oPeso').value)||null;
+  if(p.pesoActual){ if(!S.progreso) S.progreso={pesos:[]}; S.progreso.pesos.push({fecha:hoy(), peso:p.pesoActual, ts:Date.now()}); }
   p.pesoMeta = Number($('#oMeta').value)||null;
   p.actividad = $('#oAct').value;
   p.objetivo = (p.pesoMeta&&p.pesoActual)? (p.pesoMeta>p.pesoActual?'subir':p.pesoMeta<p.pesoActual?'bajar':'mantener') : 'subir';
