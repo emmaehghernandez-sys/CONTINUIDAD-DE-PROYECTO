@@ -1,5 +1,6 @@
-/* Service worker — permite abrir la app sin internet (offline). */
-const CACHE = 'mividav1-v1';
+/* Service worker — actualiza siempre a lo último cuando hay internet,
+   y guarda una copia para funcionar sin conexión. */
+const CACHE = 'mividav1-v2';
 const ASSETS = ['./', './index.html', './app.js', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', e => {
@@ -15,15 +16,19 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // Nunca cachear las llamadas a la API de Claude
+  if (e.request.method !== 'GET') return;
+  // Nunca tocar las llamadas a la API de Claude
   if (url.hostname.includes('anthropic.com')) return;
-  e.respondWith(
-    caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      if (e.request.method === 'GET' && res.ok && url.origin === location.origin) {
+
+  // Solo archivos de la propia app: red primero (para ver siempre lo último),
+  // y si no hay internet, usar la copia guardada.
+  if (url.origin === location.origin) {
+    e.respondWith(
+      fetch(e.request).then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
-      }
-      return res;
-    }).catch(() => caches.match('./index.html')))
-  );
+        return res;
+      }).catch(() => caches.match(e.request).then(hit => hit || caches.match('./index.html')))
+    );
+  }
 });
