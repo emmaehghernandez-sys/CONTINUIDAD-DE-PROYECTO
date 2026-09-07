@@ -215,15 +215,15 @@ function viewInicio(){
     <div class="lbl muted" style="font-size:12px;margin-bottom:10px">🔥 Tus rachas</div>
     <div style="text-align:center;padding:2px 0 12px;border-bottom:1px solid var(--line2)">
       <div style="font-size:46px;font-weight:800;line-height:1;color:var(--gym)">${rGym}</div>
-      <div class="sm muted" style="margin-top:6px">🏋️ días de gym en racha</div>
+      <div class="sm muted" style="margin-top:6px">🏋️ entrenos en racha</div>
     </div>
     <div class="grid2" style="gap:10px;margin-top:12px">
       <div style="text-align:center"><div style="font-size:24px;font-weight:800;line-height:1">${rActivo}</div><div class="sm muted" style="margin-top:3px">activo 🔥</div></div>
       <div style="text-align:center"><div style="font-size:24px;font-weight:800;line-height:1">${rAgua}</div><div class="sm muted" style="margin-top:3px">agua ≥6 💧</div></div>
     </div>
     ${rGym>=2
-      ? `<div class="banner ok" style="margin:12px 0 0">🔥 ¡${rGym} días de gym seguidos, ${esc(S.perfil.nombre)}! No rompas la racha. 💪</div>`
-      : `<div class="hint" style="margin-top:11px">La racha de gym cuenta los días que te toca entrenar (según tu rutina) y sí entrenas. Los días de descanso no la rompen.</div>`}
+      ? `<div class="banner ok" style="margin:12px 0 0">🔥 ¡${rGym} entrenos en racha, ${esc(S.perfil.nombre)}! No dejes pasar más de 3 días. 💪</div>`
+      : `<div class="hint" style="margin-top:11px">La racha de gym aguanta huecos de hasta 3 días (por si llueve 🌧️). Solo se rompe si dejas pasar más de 3 días sin entrenar.</div>`}
   </div>
 
   <div class="grid2">
@@ -494,7 +494,7 @@ function viewGym(){
   <div class="card" style="text-align:center">
     <div class="lbl muted small">🔥 Racha de gym</div>
     <div style="font-size:42px;font-weight:800;color:var(--gym);line-height:1;margin:7px 0 3px">${rGym}</div>
-    <div class="sm muted">días seguidos que te tocaba y sí entrenaste</div>
+    <div class="sm muted">entrenos en racha · aguanta hasta 3 días sin ir (lluvia 🌧️)</div>
   </div>
   <div class="grid2">
     <div class="stat"><div class="lbl">🏋️ Entrenos</div><div class="val">${entrenosSemana.length}<span style="font-size:13px;color:var(--mut)"> esta semana</span></div></div>
@@ -891,19 +891,19 @@ function rachaDias(cumple){
   }
   return streak;
 }
-// Racha de GYM: cuenta los días que TOCABA entrenar (según tu rutina) y sí entrenaste.
-// Los días de descanso no cuentan ni rompen la racha. Hoy es "de gracia".
+// Racha de GYM: cuenta tus entrenos seguidos. Aguanta huecos de hasta 3 días
+// (ej. días de lluvia); solo se rompe si dejas pasar MÁS de 3 días sin entrenar.
+const TOLERANCIA_GYM = 3;
+function difDias(a, b){ return Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00'))/86400000); }
 function rachaGym(){
-  let streak=0; const d=new Date();
-  for(let i=0;i<400;i++){
-    const iso=isoDe(d.getFullYear(), d.getMonth(), d.getDate());
-    const diaSem = DIAS[d.getDay()];
-    const tocaEntrenar = !!((S.gym.rutina[diaSem]||'').trim());
-    if(tocaEntrenar){
-      if(S.gym.entrenos.some(e=>e.fecha===iso)) streak++;
-      else if(i>0) break;        // día de entreno pasado que se saltó → rompe
-    }
-    d.setDate(d.getDate()-1);
+  const fechas = [...new Set(S.gym.entrenos.map(e=>e.fecha))].sort();  // ascendente
+  if(!fechas.length) return 0;
+  // Si ya pasaron más de 3 días desde el último entreno, la racha se rompió.
+  if(difDias(fechas[fechas.length-1], hoy()) > TOLERANCIA_GYM) return 0;
+  let streak = 1;
+  for(let i=fechas.length-1; i>0; i--){
+    if(difDias(fechas[i-1], fechas[i]) <= TOLERANCIA_GYM) streak++;
+    else break;
   }
   return streak;
 }
