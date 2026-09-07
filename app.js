@@ -54,7 +54,7 @@ const DEFAULT = {
          entrenos:[], suplementos:[], tomas:[] },
   uni: { tareas:[] },
   recordatorios: [],
-  ajustes: { apiKey:'', modelo:'claude-haiku-4-5-20251001', notifOk:false },
+  ajustes: { apiKey:'', modelo:'claude-haiku-4-5', notifOk:false },
   onboarded:false,
 };
 
@@ -755,7 +755,7 @@ function openAjustes(){
     <input class="in" id="pKey" type="password" value="${esc(S.ajustes.apiKey||'')}" placeholder="sk-ant-...">
     <label class="f">Modelo</label>
     <select class="in" id="pModelo">
-      <option value="claude-haiku-4-5-20251001" ${S.ajustes.modelo==='claude-haiku-4-5-20251001'?'selected':''}>Haiku (rápido y barato)</option>
+      <option value="claude-haiku-4-5" ${S.ajustes.modelo==='claude-haiku-4-5'?'selected':''}>Haiku (rápido y barato)</option>
       <option value="claude-sonnet-5" ${S.ajustes.modelo==='claude-sonnet-5'?'selected':''}>Sonnet (más listo)</option>
       <option value="claude-opus-5" ${S.ajustes.modelo==='claude-opus-5'?'selected':''}>Opus (el más potente)</option>
     </select>
@@ -925,7 +925,7 @@ async function enviarCoach(){
         'anthropic-dangerous-direct-browser-access':'true'
       },
       body: JSON.stringify({
-        model: S.ajustes.modelo || 'claude-haiku-4-5-20251001',
+        model: S.ajustes.modelo || 'claude-haiku-4-5',
         max_tokens: 900,
         system: `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.\n\nDATOS DE HOY:\n${contextoParaCoach()}`,
         messages:[{role:'user', content: msg}]
