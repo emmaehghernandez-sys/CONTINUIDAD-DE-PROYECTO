@@ -54,7 +54,7 @@ const DEFAULT = {
          entrenos:[], suplementos:[], tomas:[] },
   uni: { tareas:[] },
   recordatorios: [],
-  ajustes: { apiKey:'', modelo:'claude-haiku-4-5', notifOk:false },
+  ajustes: { apiKey:'', modelo:'claude-haiku-4-5', notifOk:false, webBuscar:true },
   onboarded:false,
 };
 
@@ -899,6 +899,11 @@ function openCoach(){
       ${sugerencias.map(s=>`<button class="chip" onclick="usarSug(this)">${esc(s)}</button>`).join('')}
     </div>
     <textarea class="in" id="ckMsg" placeholder="Escribe tu pregunta…"></textarea>
+    <label style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:14px;color:var(--txt)">
+      <input type="checkbox" id="ckWeb" ${S.ajustes.webBuscar!==false?'checked':''} onchange="S.ajustes.webBuscar=this.checked;save()" style="width:20px;height:20px;accent-color:var(--acc)">
+      🌐 Dejar que busque en internet si hace falta
+    </label>
+    <div class="hint" style="margin-top:2px">Solo busca cuando necesita datos actuales (ej. precio del dólar). Cada búsqueda cuesta ~1 centavo extra.</div>
     <div style="margin-top:12px"><button class="btn" id="ckSend" onclick="enviarCoach()">Preguntar ✦</button></div>
     <div id="ckResp" style="margin-top:16px"></div>`);
   setTimeout(()=>$('#ckMsg')?.focus(),100);
@@ -913,29 +918,48 @@ function usarSug(el){ $('#ckMsg').value = el.textContent; $('#ckMsg').focus(); }
 async function enviarCoach(){
   const msg = $('#ckMsg').value.trim(); if(!msg) return;
   const resp = $('#ckResp'); const btn = $('#ckSend');
+  const usaWeb = S.ajustes.webBuscar !== false;
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
-  resp.innerHTML = `<div class="card"><span class="spin"></span> <span class="muted">El coach está pensando…</span></div>`;
+  resp.innerHTML = `<div class="card"><span class="spin"></span> <span class="muted">${usaWeb?'El coach está pensando (puede buscar en internet)…':'El coach está pensando…'}</span></div>`;
+
+  const system = `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.${usaWeb? ' Tienes una herramienta de búsqueda web: úsala SOLO cuando necesites datos actuales o que no conoces (precio o tipo de cambio del dólar, precios de productos, noticias o info reciente). Para consejos con los datos del usuario NO la necesitas. Si buscas, cita brevemente la fuente.' : ''}\n\nDATOS DE HOY:\n${contextoParaCoach()}`;
+
+  const body = {
+    model: S.ajustes.modelo || 'claude-haiku-4-5',
+    max_tokens: 1000,
+    system,
+    messages: [{ role:'user', content: msg }]
+  };
+  if(usaWeb) body.tools = [{ type:'web_search_20250305', name:'web_search', max_uses:3 }];
+
   try{
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{
-        'content-type':'application/json',
-        'x-api-key':S.ajustes.apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body: JSON.stringify({
-        model: S.ajustes.modelo || 'claude-haiku-4-5',
-        max_tokens: 900,
-        system: `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.\n\nDATOS DE HOY:\n${contextoParaCoach()}`,
-        messages:[{role:'user', content: msg}]
-      })
-    });
-    const data = await r.json();
-    if(data.error){ resp.innerHTML = `<div class="banner warn">Error: ${esc(data.error.message||'algo falló')}. Revisa tu API key en Ajustes.</div>`; }
-    else {
-      const txt = (data.content||[]).map(c=>c.text||'').join('\n').trim();
-      resp.innerHTML = `<div class="card coachmsg">✦ ${esc(txt)}</div>`;
+    let data, guard = 0, buscó = false;
+    while(true){
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'content-type':'application/json',
+          'x-api-key':S.ajustes.apiKey,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify(body)
+      });
+      data = await r.json();
+      if(data.error) break;
+      if(Array.isArray(data.content) && data.content.some(c=>c.type==='server_tool_use'||c.type==='web_search_tool_result')) buscó = true;
+      // La búsqueda web puede pausar el turno: reanudar reenviando la respuesta
+      if(data.stop_reason === 'pause_turn' && guard++ < 4){
+        body.messages.push({ role:'assistant', content:data.content });
+        continue;
+      }
+      break;
+    }
+    if(data.error){
+      resp.innerHTML = `<div class="banner warn">Error: ${esc(data.error.message||'algo falló')}. Revisa tu API key en Ajustes.</div>`;
+    } else {
+      const txt = (data.content||[]).map(c=>c.text||'').join('\n').trim() || 'No obtuve respuesta, intenta de nuevo.';
+      resp.innerHTML = `<div class="card coachmsg">✦ ${esc(txt)}</div>${buscó?'<div class="hint center" style="margin-top:6px">🌐 El coach buscó en internet para responderte.</div>':''}`;
     }
   }catch(err){
     resp.innerHTML = `<div class="banner warn">No pude conectar. Revisa tu internet y tu API key. (${esc(String(err.message||err))})</div>`;
