@@ -1,6 +1,6 @@
 /* Service worker — actualiza siempre a lo último cuando hay internet,
    y guarda una copia para funcionar sin conexión. */
-const CACHE = 'mividav1-v2';
+const CACHE = 'mividav1-v3';
 const ASSETS = ['./', './index.html', './app.js', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', e => {
@@ -24,7 +24,8 @@ self.addEventListener('fetch', e => {
   // y si no hay internet, usar la copia guardada.
   if (url.origin === location.origin) {
     e.respondWith(
-      fetch(e.request).then(res => {
+      // 'no-store' evita el caché del navegador → siempre baja la última versión con internet
+      fetch(e.request, { cache: 'no-store' }).then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
         return res;
