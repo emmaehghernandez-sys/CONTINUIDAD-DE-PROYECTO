@@ -1,6 +1,6 @@
 /* Service worker — actualiza siempre a lo último cuando hay internet,
    y guarda una copia para funcionar sin conexión. */
-const CACHE = 'mividav1-v16';
+const CACHE = 'mividav1-v17';
 const ASSETS = ['./', './index.html', './app.js', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', e => {

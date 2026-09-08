@@ -1686,9 +1686,15 @@ function contextoParaCoach(){
   const diaHoy = DIAS[new Date().getDay()];
   const gastosHoy = S.finanzas.movs.filter(m=>m.fecha===hoy());
   const pend = tareasPendientes().slice(0,8);
+  const rutinaSemana = DIAS.slice(1).concat('domingo').map(d=>`${d}: ${resumenDiaTxt(d)||'descanso'}`).join('; ');
+  const ultimos = S.gym.entrenos.slice().sort((a,b)=>b.ts-a.ts).slice(0,6).map(e=>{
+    const ejs = (e.detalle||[]).map(d=>`${d.nombre}${d.series&&d.series.length?` (${d.series.map(x=>`${x.peso}x${x.reps}`).join('/')})`:''}`).join(', ');
+    return `${e.fecha} [${e.nota||'entreno'}]${ejs?`: ${ejs}`:''}`;
+  }).join(' | ');
   return `Perfil de ${p.nombre}: sexo ${p.sexo==='h'?'hombre':'mujer'}, ${p.edad} años, ${p.altura}cm, pesa ${p.pesoActual}kg, meta ${p.pesoMeta}kg (objetivo: ${p.objetivo}), actividad ${p.actividad}.
 Nutrición calculada hoy: ${nut?`${nut.cal} kcal, ${nut.prot}g proteína, ${nut.carbs}g carbos, ${nut.grasa}g grasa. TDEE ~${nut.tdee}.`:'perfil incompleto'}
-Entreno de hoy (${diaHoy}): ${resumenDiaTxt(diaHoy)||'descanso'}. ${entrenoFuerteHoy()?'Ya entrenó fuerte hoy.':''}
+GYM — hoy es ${diaHoy}. RUTINA SEMANAL COMPLETA (músculos por día): ${rutinaSemana}.
+GYM — últimos entrenos registrados: ${ultimos||'ninguno registrado aún'}.
 Suplementos: ${S.gym.suplementos.map(s=>s.nombre).join(', ')||'ninguno'}.
 DINERO — semanal ${money(S.finanzas.semanal)}, gastado esta semana ${money(gastoTotalSemana())}, le queda ${money(restanteSemana())}. Gastos hormiga semana: ${money(gastosSemana('hormiga'))}. Reparto sugerido: mandado ${money(rep.plan.mandado)}, inversión ${money(rep.plan.inversion)}, hormiga máx ${money(rep.plan.hormiga)}.
 Gastos de hoy: ${gastosHoy.map(m=>`${money(m.monto)} (${m.nota||m.cat})`).join(', ')||'ninguno aún'}.
@@ -1766,7 +1772,7 @@ async function enviarCoach(){
   $$('#sheetRoot .chips').forEach(c=>{ if(c.querySelector('[onclick^="usarSug"]')) c.remove(); });
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
 
-  const system = `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Recuerdas lo que van platicando en esta conversación y le das seguimiento. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.${usaWeb? ' Tienes una herramienta de búsqueda web: úsala SOLO cuando necesites datos actuales o que no conoces (precio o tipo de cambio del dólar, precios de productos, noticias o info reciente). Para consejos con los datos del usuario NO la necesitas. Si buscas, cita brevemente la fuente.' : ''}\n\nDATOS DE HOY:\n${contextoParaCoach()}`;
+  const system = `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Recuerdas lo que van platicando en esta conversación y le das seguimiento. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. IMPORTANTE: en DATOS DE HOY ya tienes su RUTINA SEMANAL COMPLETA (qué músculos entrena cada día) y sus últimos entrenos con series; úsalos directamente y NUNCA digas que no tienes acceso ni le pidas que te repita su rutina — ya la tienes ahí. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.${usaWeb? ' Tienes una herramienta de búsqueda web: úsala SOLO cuando necesites datos actuales o que no conoces (precio o tipo de cambio del dólar, precios de productos, noticias o info reciente). Para consejos con los datos del usuario NO la necesitas. Si buscas, cita brevemente la fuente.' : ''}\n\nDATOS DE HOY:\n${contextoParaCoach()}`;
 
   const body = {
     model: S.ajustes.modelo || 'claude-haiku-4-5',
