@@ -484,6 +484,7 @@ function viewComida(){
    ============================================================ */
 const GRUPOS = [
   {id:'pecho',   nombre:'Pecho',   color:'#c56a34'},
+  {id:'espalda', nombre:'Espalda', color:'#3a7d4d'},
   {id:'hombro',  nombre:'Hombro',  color:'#1f97a8'},
   {id:'biceps',  nombre:'Bíceps',  color:'#6a4fd0'},
   {id:'triceps', nombre:'Tríceps', color:'#8a5cd0'},
@@ -491,40 +492,6 @@ const GRUPOS = [
   {id:'gluteo',  nombre:'Glúteo',  color:'#d64848'},
   {id:'abdomen', nombre:'Abdomen', color:'#2b8fb0'},
 ];
-const EJERCICIOS = [
-  // Pecho
-  {id:'press_plano',    grupo:'pecho',   nombre:'Press plano',        variantes:['Barra','Mancuerna','Máquina'], cue:'Baja al pecho con codos ~45°, empuja sin rebotar.'},
-  {id:'press_inclinado',grupo:'pecho',   nombre:'Press inclinado',    variantes:['Mancuerna','Barra','Máquina'], cue:'Banca a 30-45°: pega al pecho superior.'},
-  {id:'aperturas',      grupo:'pecho',   nombre:'Aperturas',          variantes:['Mancuerna','Polea','Peck deck'], cue:'Codos semi-flexionados, siente el estiramiento.'},
-  {id:'fondos_pecho',   grupo:'pecho',   nombre:'Fondos (dips)',      variantes:['Peso corporal','Máquina'], cue:'Inclina el torso al frente para cargar el pecho.'},
-  // Hombro
-  {id:'press_militar',  grupo:'hombro',  nombre:'Press militar',      variantes:['Barra','Mancuerna','Máquina'], cue:'Empuja arriba sin arquear la espalda.'},
-  {id:'lateral',        grupo:'hombro',  nombre:'Elevaciones laterales', variantes:['Mancuerna','Polea','Máquina'], cue:'Sube a la altura del hombro, codos ligeros.'},
-  {id:'posterior',      grupo:'hombro',  nombre:'Deltoide posterior', variantes:['Mancuerna','Polea','Peck deck'], cue:'Inclínate y abre para la parte de atrás del hombro.'},
-  // Bíceps
-  {id:'curl',           grupo:'biceps',  nombre:'Curl de bíceps',     variantes:['Mancuerna','Barra','Polea','Máquina'], cue:'Codos pegados al cuerpo, sube sin balanceo.'},
-  {id:'martillo',       grupo:'biceps',  nombre:'Curl martillo',      variantes:['Mancuerna','Polea'], cue:'Agarre neutro (palmas enfrentadas).'},
-  {id:'predicador',     grupo:'biceps',  nombre:'Curl predicador',    variantes:['Barra','Mancuerna','Máquina'], cue:'Apoya el brazo y haz rango completo.'},
-  // Tríceps
-  {id:'ext_polea',      grupo:'triceps', nombre:'Extensión en polea', variantes:['Polea (barra)','Polea (cuerda)'], cue:'Codos fijos a los lados, extiende completo.'},
-  {id:'frances',        grupo:'triceps', nombre:'Press francés',      variantes:['Barra','Mancuerna'], cue:'Baja detrás de la cabeza, codos quietos.'},
-  {id:'fondos_tri',     grupo:'triceps', nombre:'Fondos de tríceps',  variantes:['Peso corporal','Máquina'], cue:'Torso recto para aislar el tríceps.'},
-  // Pierna
-  {id:'sentadilla',     grupo:'pierna',  nombre:'Sentadilla',         variantes:['Barra','Smith','Peso corporal'], cue:'Baja a ~90°, rodillas hacia afuera, pecho arriba.'},
-  {id:'prensa',         grupo:'pierna',  nombre:'Prensa',             variantes:['Máquina'], cue:'Baja controlado, no bloquees las rodillas arriba.'},
-  {id:'peso_muerto',    grupo:'pierna',  nombre:'Peso muerto',        variantes:['Barra','Mancuerna'], cue:'Espalda recta, empuja con piernas y cadera.'},
-  {id:'ext_cuad',       grupo:'pierna',  nombre:'Extensión de cuádriceps', variantes:['Máquina'], cue:'Extiende y aprieta arriba 1 seg.'},
-  {id:'curl_femoral',   grupo:'pierna',  nombre:'Curl femoral',       variantes:['Máquina'], cue:'Lleva el talón al glúteo, controla la bajada.'},
-  // Glúteo
-  {id:'hip_thrust',     grupo:'gluteo',  nombre:'Hip thrust',         variantes:['Barra','Máquina'], cue:'Empuja con talones y aprieta el glúteo arriba.'},
-  {id:'patada',         grupo:'gluteo',  nombre:'Patada de glúteo',   variantes:['Polea','Máquina'], cue:'Lleva la pierna atrás sin arquear la espalda.'},
-  {id:'zancadas',       grupo:'gluteo',  nombre:'Zancadas',           variantes:['Mancuerna','Barra','Peso corporal'], cue:'Paso largo, baja recto, empuja con el talón.'},
-  // Abdomen
-  {id:'crunch',         grupo:'abdomen', nombre:'Crunch',             variantes:['Peso corporal','Polea','Máquina'], cue:'Enrolla el tronco y exhala al subir.'},
-  {id:'plancha',        grupo:'abdomen', nombre:'Plancha',            variantes:['Peso corporal'], cue:'Cuerpo recto, aprieta abdomen y glúteo (mide segundos en “reps”).'},
-  {id:'elev_piernas',   grupo:'abdomen', nombre:'Elevación de piernas', variantes:['Peso corporal','En barra'], cue:'Sube las piernas sin arquear la espalda baja.'},
-];
-const ejPorId    = id => EJERCICIOS.find(e=>e.id===id);
 const grupoPorId = id => GRUPOS.find(g=>g.id===id);
 const nombreGrupo= id => (grupoPorId(id)||{}).nombre || '';
 const grupoColor = id => (grupoPorId(id)||{}).color || '#6a4fd0';
@@ -555,61 +522,50 @@ function figuraSVG(grupo){
   </svg>`;
 }
 
-// Texto-resumen de un día (grupos musculares del plan; si no, el texto viejo)
+// Texto-resumen de un día = músculos a entrenar
 function resumenDiaTxt(dia){
   const plan = (S.gym.plan && S.gym.plan[dia]) || [];
-  if(plan.length){
-    const grupos = [...new Set(plan.map(it=>nombreGrupo(ejPorId(it.ejId)?.grupo)).filter(Boolean))];
-    return grupos.join(', ') || `${plan.length} ejercicios`;
-  }
+  if(plan.length) return plan.map(g=>nombreGrupo(g)||g).filter(Boolean).join(', ');
   return (S.gym.rutina && S.gym.rutina[dia]) ? S.gym.rutina[dia] : '';
 }
-function planDiaResumen(dia){
-  const plan = (S.gym.plan && S.gym.plan[dia]) || [];
-  return plan.map(it=>ejPorId(it.ejId)?.nombre).filter(Boolean).join(', ');
-}
+const planDiaResumen = resumenDiaTxt;
 
-/* ---------- Armador de rutina por día ---------- */
-let planGrupoSel = null;
+/* ---------- Armador de rutina por día = elegir MÚSCULOS ---------- */
 function sheetPlanDia(dia){
   const plan = (S.gym.plan && S.gym.plan[dia]) || [];
-  const lista = plan.length ? plan.map((it,i)=>{
-    const ej = ejPorId(it.ejId) || {};
-    const varSel = (ej.variantes && ej.variantes.length>1)
-      ? `<select class="in" style="padding:7px;font-size:12px;width:auto" onchange="setVariantePlan('${dia}',${i},this.value)">${ej.variantes.map(v=>`<option ${v===it.variante?'selected':''}>${esc(v)}</option>`).join('')}</select>`
-      : `<span class="sm muted">${esc(it.variante||'')}</span>`;
-    return `<div class="row"><div class="ic" style="background:${grupoColor(ej.grupo)}22;color:${grupoColor(ej.grupo)};font-size:11px;font-weight:800;text-transform:uppercase">${(nombreGrupo(ej.grupo)||'').slice(0,3)}</div>
-      <div class="mid"><div class="t">${esc(ej.nombre||'?')}</div></div>${varSel}
-      <button class="addbtn" style="margin-left:6px" onclick="quitarDelPlan('${dia}',${i})">×</button></div>`;
-  }).join('') : `<div class="empty small">Aún sin ejercicios. Elige un grupo abajo y agrégalos.</div>`;
-  const chips = GRUPOS.map(g=>`<button class="chip ${planGrupoSel===g.id?'on':''}" onclick="selGrupoPlan('${dia}','${g.id}')">${esc(g.nombre)}</button>`).join('');
-  const addList = planGrupoSel ? EJERCICIOS.filter(e=>e.grupo===planGrupoSel).map(e=>
-    `<button class="btn sec sm" style="width:100%;justify-content:space-between;margin-top:6px" onclick="agregarAlPlan('${dia}','${e.id}')">${esc(e.nombre)} <span style="color:var(--mut);font-weight:800">＋</span></button>`).join('') : '';
+  const lista = plan.length ? plan.map((g,i)=>`<div class="row">
+      <div class="ic" style="background:${grupoColor(g)}22;color:${grupoColor(g)};font-size:11px;font-weight:800;text-transform:uppercase">${(nombreGrupo(g)||g).slice(0,3)}</div>
+      <div class="mid"><div class="t">${esc(nombreGrupo(g)||g)}</div></div>
+      <button class="addbtn" style="margin-left:6px" onclick="quitarMusculo('${dia}',${i})">×</button></div>`).join('')
+    : `<div class="empty small">Aún sin músculos. Toca abajo los que entrenas este día.</div>`;
+  const chips = GRUPOS.map(g=>{
+    const on = plan.includes(g.id);
+    return `<button class="chip ${on?'on':''}" onclick="toggleMusculo('${dia}','${g.id}')">${esc(g.nombre)}${on?' ✓':''}</button>`;
+  }).join('');
   openSheet(`<h3 style="text-transform:capitalize">${dia}</h3>
-    <div class="lbl muted small" style="margin:2px 2px 6px">Ejercicios de este día</div>
+    <div class="lbl muted small" style="margin:2px 2px 6px">Músculos de este día</div>
     <div class="card" style="margin-bottom:12px">${lista}</div>
-    <div class="lbl muted small" style="margin:4px 2px 6px">Agregar por grupo muscular</div>
+    <div class="lbl muted small" style="margin:4px 2px 6px">Toca los músculos que entrenas este día</div>
     <div class="chips">${chips}</div>
-    ${planGrupoSel ? `<div style="margin-top:8px">${addList}</div>` : ''}
-    <button class="btn" style="margin-top:14px" onclick="cerrarPlan()">Listo</button>`);
+    <button class="btn" style="margin-top:16px" onclick="cerrarPlan()">Listo</button>`);
 }
-function cerrarPlan(){ planGrupoSel=null; closeSheet(); render(); }
-function selGrupoPlan(dia,g){ planGrupoSel = (planGrupoSel===g?null:g); sheetPlanDia(dia); }
-function agregarAlPlan(dia,ejId){
+function cerrarPlan(){ closeSheet(); render(); }
+function toggleMusculo(dia,g){
   if(!S.gym.plan) S.gym.plan={};
   if(!S.gym.plan[dia]) S.gym.plan[dia]=[];
-  const ej = ejPorId(ejId);
-  S.gym.plan[dia].push({ejId, variante: (ej && ej.variantes[0]) || ''});
+  const arr = S.gym.plan[dia], i = arr.indexOf(g);
+  if(i>=0) arr.splice(i,1); else arr.push(g);
   save(); sheetPlanDia(dia);
 }
-function quitarDelPlan(dia,i){ S.gym.plan[dia].splice(i,1); save(); sheetPlanDia(dia); }
-function setVariantePlan(dia,i,val){ S.gym.plan[dia][i].variante = val; save(); }
+function quitarMusculo(dia,i){ S.gym.plan[dia].splice(i,1); save(); sheetPlanDia(dia); }
 
-/* ---------- Sesión: "Entrenar hoy" (registro de series con RIR) ---------- */
+/* ---------- Sesión: "Entrenar hoy" (por músculo, agregas ejercicios y series) ---------- */
 let sesionActual = null;
-function ultimaSesionEj(ejId){
+function ultimaSerieDe(nombre){
+  if(!nombre || !nombre.trim()) return null;
+  const n = nombre.trim().toLowerCase();
   const conDet = S.gym.entrenos.filter(e=>Array.isArray(e.detalle)).sort((a,b)=>b.ts-a.ts);
-  for(const e of conDet){ const it=(e.detalle||[]).find(d=>d.ejId===ejId); if(it && it.series && it.series.length) return {fecha:e.fecha, series:it.series}; }
+  for(const e of conDet){ const it=(e.detalle||[]).find(d=>(d.nombre||'').trim().toLowerCase()===n); if(it && it.series && it.series.length) return it.series; }
   return null;
 }
 function iniciarEntreno(){
@@ -617,15 +573,12 @@ function iniciarEntreno(){
   const plan = (S.gym.plan && S.gym.plan[dia]) || [];
   if(!plan.length){
     openSheet(`<h3>Entrenar hoy</h3>
-      <div class="empty"><div class="big">🏋️</div>Hoy (${dia}) no tienes ejercicios en tu rutina.</div>
+      <div class="empty"><div class="big">🏋️</div>Hoy (${dia}) no tienes músculos en tu rutina.</div>
       <button class="btn" onclick="sheetPlanDia('${dia}')">Armar rutina de hoy</button>
       <button class="btn sec" style="margin-top:8px" onclick="closeSheet()">Cerrar</button>`);
     return;
   }
-  sesionActual = { fecha:hoy(), dia, items: plan.map(it=>{
-    const ej = ejPorId(it.ejId) || {};
-    return { ejId:it.ejId, nombre:ej.nombre||'Ejercicio', grupo:ej.grupo||'', variante: it.variante || (ej.variantes && ej.variantes[0]) || '', series:[{peso:'',reps:'',rir:''}] };
-  })};
+  sesionActual = { fecha:hoy(), dia, items: plan.map(g=>({ grupo:g, nombre:'', series:[{peso:'',reps:'',rir:''}] })) };
   renderEntreno();
 }
 function capturarSesion(){
@@ -633,7 +586,7 @@ function capturarSesion(){
   $$('#sheetRoot [data-f]').forEach(inp=>{
     const i=+inp.dataset.i, f=inp.dataset.f, it=sesionActual.items[i];
     if(!it) return;
-    if(f==='variante'){ it.variante=inp.value; return; }
+    if(f==='nombre'){ it.nombre=inp.value; return; }
     const j=+inp.dataset.j; if(!it.series[j]) return;
     it.series[j][f]=inp.value;
   });
@@ -641,38 +594,46 @@ function capturarSesion(){
 function renderEntreno(){
   const s = sesionActual; if(!s) return;
   const rirOpts = v => ['','al fallo','RIR 1','RIR 2','RIR 3','RIR 4+'].map(o=>`<option value="${o}" ${o===v?'selected':''}>${o||'esfuerzo…'}</option>`).join('');
-  const cards = s.items.map((it,i)=>{
-    const ej = ejPorId(it.ejId) || {};
-    const varSel = (ej.variantes && ej.variantes.length>1)
-      ? `<select class="in" data-f="variante" data-i="${i}" onchange="capturarSesion();renderEntreno()" style="padding:7px;font-size:12.5px;width:auto">${ej.variantes.map(v=>`<option ${v===it.variante?'selected':''}>${esc(v)}</option>`).join('')}</select>`
-      : `<span class="tag" style="background:var(--card2);color:var(--mut)">${esc(it.variante||'')}</span>`;
-    const ult = ultimaSesionEj(it.ejId);
-    const ultTxt = ult ? `Última vez: ${ult.series.map(x=>`${x.peso||'?'}×${x.reps||'?'}`).join(', ')}` : 'Primera vez con este ejercicio';
-    const series = it.series.map((se,j)=>`<div class="kpi" style="gap:6px;margin-top:6px">
-      <span class="sm muted" style="width:16px;text-align:center">${j+1}</span>
-      <input class="in" data-f="peso" data-i="${i}" data-j="${j}" type="number" inputmode="decimal" value="${se.peso}" placeholder="kg" style="padding:9px;text-align:center">
-      <input class="in" data-f="reps" data-i="${i}" data-j="${j}" type="number" inputmode="numeric" value="${se.reps}" placeholder="reps" style="padding:9px;text-align:center">
-      <select class="in" data-f="rir" data-i="${i}" data-j="${j}" style="padding:9px;font-size:12.5px">${rirOpts(se.rir)}</select>
-      <button class="addbtn" onclick="delSerie(${i},${j})">×</button>
-    </div>`).join('');
+  const orden = (S.gym.plan[s.dia]||[]).filter((g,idx,self)=>self.indexOf(g)===idx);
+  const cards = orden.map(g=>{
+    const demo = `<div style="width:50px;height:64px;flex:none;background:var(--card2);border-radius:10px;padding:4px">${figuraSVG(g)}</div>`;
+    const ejs = s.items.map((it,i)=>({it,i})).filter(x=>x.it.grupo===g);
+    const ejHtml = ejs.map(({it,i})=>{
+      const prev = ultimaSerieDe(it.nombre);
+      const prevTxt = prev ? `Última vez: ${prev.map(x=>`${x.peso||'?'}×${x.reps||'?'}`).join(', ')}` : '';
+      const series = it.series.map((se,j)=>`<div class="kpi" style="gap:6px;margin-top:6px">
+        <span class="sm muted" style="width:16px;text-align:center">${j+1}</span>
+        <input class="in" data-f="peso" data-i="${i}" data-j="${j}" type="number" inputmode="decimal" value="${se.peso}" placeholder="kg" style="padding:9px;text-align:center">
+        <input class="in" data-f="reps" data-i="${i}" data-j="${j}" type="number" inputmode="numeric" value="${se.reps}" placeholder="reps" style="padding:9px;text-align:center">
+        <select class="in" data-f="rir" data-i="${i}" data-j="${j}" style="padding:9px;font-size:12.5px">${rirOpts(se.rir)}</select>
+        <button class="addbtn" onclick="delSerie(${i},${j})">×</button>
+      </div>`).join('');
+      return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line2)">
+        <div class="kpi" style="gap:6px">
+          <input class="in" data-f="nombre" data-i="${i}" value="${esc(it.nombre)}" placeholder="Ejercicio (ej. Press inclinado con mancuerna)" style="padding:9px;font-weight:600">
+          <button class="addbtn" onclick="delEjercicio(${i})">×</button>
+        </div>
+        ${prevTxt?`<div class="hint" style="margin:5px 0 0">${esc(prevTxt)}</div>`:''}
+        ${series}
+        <button class="btn sm sec" style="margin-top:8px" onclick="addSerie(${i})">＋ serie</button>
+      </div>`;
+    }).join('');
     return `<div class="card">
-      <div class="kpi" style="justify-content:space-between;gap:8px">
-        <div style="font-weight:700">${esc(it.nombre)}</div>${varSel}
+      <div class="kpi" style="gap:10px;align-items:center">
+        ${demo}<div style="font-weight:700;font-size:17px;color:${grupoColor(g)}">${esc(nombreGrupo(g)||g)}</div>
       </div>
-      <div class="kpi" style="gap:10px;margin-top:8px;align-items:flex-start">
-        <div style="width:58px;height:74px;flex:none;background:var(--card2);border-radius:12px;padding:4px">${figuraSVG(it.grupo)}</div>
-        <div class="hint" style="margin:0"><b style="color:var(--txt)">Técnica:</b> ${esc(ej.cue||'')}<br><span style="color:var(--mut2)">${esc(ultTxt)}</span></div>
-      </div>
-      ${series}
-      <button class="btn sm sec" style="margin-top:8px" onclick="addSerie(${i})">＋ serie</button>
+      ${ejHtml}
+      <button class="btn sm" style="margin-top:10px" onclick="addEjercicio('${g}')">＋ ejercicio</button>
     </div>`;
   }).join('');
   openSheet(`<h3 style="text-transform:capitalize">Entrenar — ${s.dia}</h3>
-    <p class="hint">Apunta cada serie: <b>peso</b>, <b>reps</b> y qué tan cerca del fallo (RIR). Cambia la variante si el equipo está ocupado.</p>
+    <p class="hint">Por cada músculo, agrega los ejercicios que hiciste y apunta tus series: <b>peso</b>, <b>reps</b> y esfuerzo (RIR).</p>
     ${cards}
     <button class="btn" style="margin-top:10px" onclick="terminarEntreno()">✓ Terminar entreno</button>
     <button class="btn sec" style="margin-top:8px" onclick="cancelarEntreno()">Cancelar</button>`);
 }
+function addEjercicio(g){ capturarSesion(); sesionActual.items.push({grupo:g, nombre:'', series:[{peso:'',reps:'',rir:''}]}); renderEntreno(); }
+function delEjercicio(i){ capturarSesion(); sesionActual.items.splice(i,1); renderEntreno(); }
 function addSerie(i){ capturarSesion(); sesionActual.items[i].series.push({peso:'',reps:'',rir:''}); renderEntreno(); }
 function delSerie(i,j){ capturarSesion(); sesionActual.items[i].series.splice(j,1); if(!sesionActual.items[i].series.length) sesionActual.items[i].series.push({peso:'',reps:'',rir:''}); renderEntreno(); }
 function cancelarEntreno(){ sesionActual=null; closeSheet(); }
@@ -680,7 +641,7 @@ function terminarEntreno(){
   capturarSesion();
   const s = sesionActual;
   const detalle = s.items.map(it=>({
-    ejId:it.ejId, nombre:it.nombre, grupo:it.grupo, variante:it.variante,
+    grupo:it.grupo, nombre:(it.nombre||'').trim()||nombreGrupo(it.grupo)||'Ejercicio', variante:'',
     series: it.series.filter(x=>x.peso||x.reps).map(x=>({peso:Number(x.peso)||0, reps:Number(x.reps)||0, rir:x.rir||''}))
   })).filter(it=>it.series.length);
   if(!detalle.length){ toast('Apunta al menos una serie'); return; }
@@ -700,11 +661,11 @@ function viewGym(){
 
   const rGym = rachaGym();
   const rutinaRows = DIAS.slice(1).concat('domingo').map(d=>{
-    const resumen = planDiaResumen(d) || (S.gym.rutina[d]||'');
-    const nEj = ((S.gym.plan&&S.gym.plan[d])||[]).length;
+    const resumen = resumenDiaTxt(d);
+    const nM = ((S.gym.plan&&S.gym.plan[d])||[]).length;
     return `<div class="row">
       <div class="ic" style="background:rgba(106,79,208,.14);color:var(--gym);text-transform:capitalize;font-size:12px;font-weight:800">${d.slice(0,3)}</div>
-      <div class="mid"><div class="t" style="${resumen?'':'color:var(--mut);font-weight:500'}">${resumen? esc(resumen):'Descanso — toca para armar'}</div>${nEj?`<div class="s">${nEj} ejercicio(s)</div>`:''}</div>
+      <div class="mid"><div class="t" style="${resumen?'':'color:var(--mut);font-weight:500'}">${resumen? esc(resumen):'Descanso — toca para armar'}</div>${nM?`<div class="s">${nM} músculo(s)</div>`:''}</div>
       <button class="addbtn" onclick="sheetPlanDia('${d}')">✎</button>
     </div>`;
   }).join('');
