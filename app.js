@@ -1704,7 +1704,36 @@ DINERO — presupuesto semanal ${money(S.finanzas.semanal)}, gastado esta semana
 DINERO — gasto por categoría esta semana: ${porCat||'sin gastos'}. Gastos de hoy: ${gastosHoy.map(m=>`${money(m.monto)} (${m.nota||m.cat})`).join(', ')||'ninguno aún'}.
 DEUDAS: ${deudas||'ninguna registrada'}.
 METAS DE AHORRO: ${metas||'ninguna registrada'}.
-UNIVERSIDAD — tareas pendientes: ${pend.map(t=>`"${t.titulo}"${t.materia?' de '+t.materia:''}${t.fecha?' vence '+t.fecha:''}`).join('; ')||'ninguna'}. Tareas ya hechas: ${hechas}.`;
+UNIVERSIDAD — tareas pendientes: ${pend.map(t=>`"${t.titulo}"${t.materia?' de '+t.materia:''}${t.fecha?' vence '+t.fecha:''}`).join('; ')||'ninguna'}. Tareas ya hechas: ${hechas}.
+${resumenHistorialCoach()}`;
+}
+// Historial para que el Coach responda del pasado y compare mes vs mes (con topes)
+function resumenHistorialCoach(){
+  const now = new Date();
+  const meses = [];
+  for(let k=0;k<6;k++){
+    const d = new Date(now.getFullYear(), now.getMonth()-k, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const movs = S.finanzas.movs.filter(m=>m.fecha && m.fecha.slice(0,7)===key);
+    const total = movs.reduce((a,m)=>a+m.monto,0);
+    const porCat = {}; movs.forEach(m=>porCat[m.cat]=(porCat[m.cat]||0)+m.monto);
+    const catTxt = Object.entries(porCat).sort((a,b)=>b[1]-a[1]).slice(0,4)
+      .map(([id,v])=>`${(S.finanzas.cats.find(c=>c.id===id)||{nombre:id}).nombre} ${money(v)}`).join(', ');
+    const ent = S.gym.entrenos.filter(e=>e.fecha && e.fecha.slice(0,7)===key).length;
+    const com = S.comida.registros.filter(r=>r.fecha && r.fecha.slice(0,7)===key).length;
+    if(total||ent||com) meses.push(`${MESES[d.getMonth()]} ${d.getFullYear()}: gasto ${money(total)}${catTxt?` (${catTxt})`:''}, ${ent} entrenos, ${com} comidas registradas`);
+  }
+  const comidas = S.comida.registros.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,30)
+    .map(r=>`${r.fecha} ${r.comida}: ${r.texto||'—'}`).join(' | ');
+  const hechas = S.uni.tareas.filter(t=>t.estado==='hecha').slice(-20)
+    .map(t=>`${t.titulo}${t.materia?' ('+t.materia+')':''}${t.fecha?' '+t.fecha:''}`).join('; ');
+  const pesos = ((S.progreso&&S.progreso.pesos)||[]).slice().sort((a,b)=>a.fecha.localeCompare(b.fecha))
+    .map(x=>`${x.fecha}:${x.peso}kg`).join(', ');
+  return `HISTORIAL (para preguntas del pasado y comparar mes vs mes):
+Resumen por mes (últimos 6): ${meses.join(' || ')||'sin datos aún'}.
+Comidas registradas (últimas 30): ${comidas||'ninguna'}.
+Tareas ya hechas: ${hechas||'ninguna'}.
+Peso histórico: ${pesos||'sin registros'}.`;
 }
 
 function openCoach(){
@@ -1778,7 +1807,7 @@ async function enviarCoach(){
   $$('#sheetRoot .chips').forEach(c=>{ if(c.querySelector('[onclick^="usarSug"]')) c.remove(); });
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
 
-  const system = `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Recuerdas lo que van platicando en esta conversación y le das seguimiento. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. IMPORTANTE: en DATOS DE HOY ya tienes TODA su info real de la app: dinero (presupuesto, gasto por categoría, gastos de hoy), DEUDAS, METAS DE AHORRO, su RUTINA SEMANAL COMPLETA con últimos entrenos y series, y sus TAREAS de la escuela. Úsalos directamente y NUNCA digas que no tienes acceso ni le pidas que te repita datos que ya están ahí; si algo específico no aparece es porque aún no lo ha registrado (dilo así y sugiere registrarlo). Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.${usaWeb? ' Tienes una herramienta de búsqueda web: úsala SOLO cuando necesites datos actuales o que no conoces (precio o tipo de cambio del dólar, precios de productos, noticias o info reciente). Para consejos con los datos del usuario NO la necesitas. Si buscas, cita brevemente la fuente.' : ''}\n\nDATOS DE HOY:\n${contextoParaCoach()}`;
+  const system = `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Recuerdas lo que van platicando en esta conversación y le das seguimiento. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. IMPORTANTE: en DATOS DE HOY ya tienes TODA su info real de la app: dinero (presupuesto, gasto por categoría, gastos de hoy), DEUDAS, METAS DE AHORRO, su RUTINA SEMANAL COMPLETA con últimos entrenos y series, y sus TAREAS de la escuela. Úsalos directamente y NUNCA digas que no tienes acceso ni le pidas que te repita datos que ya están ahí; si algo específico no aparece es porque aún no lo ha registrado (dilo así y sugiere registrarlo). También tienes un HISTORIAL (resumen por mes de gastos/entrenos/comidas, comidas recientes, tareas hechas y peso histórico): úsalo para responder qué pasó en meses pasados y para COMPARAR un mes contra otro con números concretos. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.${usaWeb? ' Tienes una herramienta de búsqueda web: úsala SOLO cuando necesites datos actuales o que no conoces (precio o tipo de cambio del dólar, precios de productos, noticias o info reciente). Para consejos con los datos del usuario NO la necesitas. Si buscas, cita brevemente la fuente.' : ''}\n\nDATOS DE HOY:\n${contextoParaCoach()}`;
 
   const body = {
     model: S.ajustes.modelo || 'claude-haiku-4-5',
