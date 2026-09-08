@@ -1711,7 +1711,7 @@ ${resumenHistorialCoach()}`;
 function resumenHistorialCoach(){
   const now = new Date();
   const meses = [];
-  for(let k=0;k<6;k++){
+  for(let k=0;k<3;k++){
     const d = new Date(now.getFullYear(), now.getMonth()-k, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     const movs = S.finanzas.movs.filter(m=>m.fecha && m.fecha.slice(0,7)===key);
@@ -1730,7 +1730,7 @@ function resumenHistorialCoach(){
   const pesos = ((S.progreso&&S.progreso.pesos)||[]).slice().sort((a,b)=>a.fecha.localeCompare(b.fecha))
     .map(x=>`${x.fecha}:${x.peso}kg`).join(', ');
   return `HISTORIAL (para preguntas del pasado y comparar mes vs mes):
-Resumen por mes (últimos 6): ${meses.join(' || ')||'sin datos aún'}.
+Resumen por mes (últimos 3 meses): ${meses.join(' || ')||'sin datos aún'}.
 Comidas registradas (últimas 30): ${comidas||'ninguna'}.
 Tareas ya hechas: ${hechas||'ninguna'}.
 Peso histórico: ${pesos||'sin registros'}.`;
@@ -1807,7 +1807,7 @@ async function enviarCoach(){
   $$('#sheetRoot .chips').forEach(c=>{ if(c.querySelector('[onclick^="usarSug"]')) c.remove(); });
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
 
-  const system = `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Recuerdas lo que van platicando en esta conversación y le das seguimiento. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. IMPORTANTE: en DATOS DE HOY ya tienes TODA su info real de la app: dinero (presupuesto, gasto por categoría, gastos de hoy), DEUDAS, METAS DE AHORRO, su RUTINA SEMANAL COMPLETA con últimos entrenos y series, y sus TAREAS de la escuela. Úsalos directamente y NUNCA digas que no tienes acceso ni le pidas que te repita datos que ya están ahí; si algo específico no aparece es porque aún no lo ha registrado (dilo así y sugiere registrarlo). También tienes un HISTORIAL (resumen por mes de gastos/entrenos/comidas, comidas recientes, tareas hechas y peso histórico): úsalo para responder qué pasó en meses pasados y para COMPARAR un mes contra otro con números concretos. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.${usaWeb? ' Tienes una herramienta de búsqueda web: úsala SOLO cuando necesites datos actuales o que no conoces (precio o tipo de cambio del dólar, precios de productos, noticias o info reciente). Para consejos con los datos del usuario NO la necesitas. Si buscas, cita brevemente la fuente.' : ''}\n\nDATOS DE HOY:\n${contextoParaCoach()}`;
+  const system = `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Recuerdas lo que van platicando en esta conversación y le das seguimiento. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. IMPORTANTE: en DATOS DE HOY ya tienes TODA su info real de la app: dinero (presupuesto, gasto por categoría, gastos de hoy), DEUDAS, METAS DE AHORRO, su RUTINA SEMANAL COMPLETA con últimos entrenos y series, y sus TAREAS de la escuela. Úsalos directamente y NUNCA digas que no tienes acceso ni le pidas que te repita datos que ya están ahí; si algo específico no aparece es porque aún no lo ha registrado (dilo así y sugiere registrarlo). También tienes un HISTORIAL de los últimos 3 meses (resumen por mes de gastos/entrenos/comidas, comidas recientes, tareas hechas y peso histórico): úsalo para responder qué pasó en meses pasados. Si te pregunta si va MEJOR o PEOR que el mes pasado, haz el análisis comparando este mes contra el anterior (dinero, gym, comida, peso) y dile claramente en qué va mejor y en qué va peor, con números concretos y 1-2 consejos. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.${usaWeb? ' Tienes una herramienta de búsqueda web: úsala SOLO cuando necesites datos actuales o que no conoces (precio o tipo de cambio del dólar, precios de productos, noticias o info reciente). Para consejos con los datos del usuario NO la necesitas. Si buscas, cita brevemente la fuente.' : ''}\n\nDATOS DE HOY:\n${contextoParaCoach()}`;
 
   const body = {
     model: S.ajustes.modelo || 'claude-haiku-4-5',
