@@ -50,7 +50,7 @@ const DEFAULT_CATS = [
 const DEFAULT = {
   v: 1,
   perfil: { nombre:'Emmanuel', sexo:'', edad:null, altura:null, pesoActual:null, pesoMeta:null, actividad:'moderado', objetivo:'subir' },
-  finanzas: { semanal:7000, cats: DEFAULT_CATS.map(c=>({...c})), movs:[] },
+  finanzas: { semanal:7000, cats: DEFAULT_CATS.map(c=>({...c})), movs:[], metas:[] },
   comida: { registros:[], vasosAgua:{} },
   gym: { rutina:{lunes:'',martes:'',miércoles:'',jueves:'',viernes:'',sábado:'',domingo:''},
          entrenos:[], suplementos:[], tomas:[] },
@@ -372,6 +372,8 @@ function viewDinero(){
     🛒 ${money(rep.plan.mandado)} mandado · 📈 ${money(rep.plan.inversion)} ahorro/inversión · 🐜 máx ${money(rep.plan.hormiga)} hormiga · ✨ ${money(rep.plan.otros)} libre.
     <div style="margin-top:8px"><button class="btn sm" onclick="aplicarReparto()">Aplicar este reparto</button></div>
   </div>
+
+  ${metasAhorroHtml()}
 
   ${graficaGastos()}
 
@@ -835,6 +837,80 @@ function graficaPeso(){
     ${cuerpo}
   </div>`;
 }
+/* ---------- Metas de ahorro (barra de progreso) ---------- */
+function metasAhorroHtml(){
+  const metas = S.finanzas.metas || [];
+  const cards = metas.map(m=>{
+    const pct = m.objetivo ? clamp(m.ahorrado/m.objetivo*100,0,100) : 0;
+    const done = m.objetivo && m.ahorrado>=m.objetivo;
+    return `<div class="card">
+      <div class="kpi" style="justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div class="t" style="font-weight:700;font-size:16px">${done?'🎉 ':'🎯 '}${esc(m.nombre)}</div>
+          <div class="s muted" style="margin-top:2px">${money(m.ahorrado)} de ${money(m.objetivo)}${m.fecha?` · para ${fechaBonita(m.fecha)}`:''}</div>
+        </div>
+        <button class="addbtn" onclick="sheetMeta('${m.id}')">✎</button>
+      </div>
+      <div class="bar" style="margin-top:11px;height:12px"><span style="width:${pct}%;background:${done?'var(--ok)':'var(--money)'}"></span></div>
+      <div class="kpi" style="justify-content:space-between;margin-top:10px">
+        <div class="sm" style="font-weight:800;color:${done?'var(--ok)':'var(--money)'}">${Math.round(pct)}%${done?' ¡logrado!':''}</div>
+        <button class="btn sm" style="width:auto" onclick="sheetAbonar('${m.id}')">＋ Abonar</button>
+      </div>
+      ${!done && m.objetivo? `<div class="hint" style="margin-top:7px">Te faltan <b>${money(m.objetivo-m.ahorrado)}</b>.</div>`:''}
+    </div>`;
+  }).join('');
+  return `<div class="sectitle"><h2>Metas de ahorro</h2><button class="addbtn" onclick="sheetMeta()">+</button></div>
+    ${metas.length? cards : `<div class="card"><div class="empty"><div class="big">🎯</div>Crea tu primera meta (ej. «Moto $20,000») y ve tu avance.</div></div>`}`;
+}
+function sheetMeta(id){
+  const m = (S.finanzas.metas||[]).find(x=>x.id===id) || {nombre:'',objetivo:'',ahorrado:0,fecha:''};
+  const editando = !!id;
+  openSheet(`<h3>${editando?'Editar meta':'Nueva meta de ahorro'}</h3>
+    <label class="f">¿Para qué ahorras?</label>
+    <input class="in" id="mNom" value="${esc(m.nombre)}" placeholder="ej. Moto, viaje, fondo de emergencia">
+    <label class="f">Monto meta ($)</label>
+    <input class="in" id="mObj" type="number" inputmode="numeric" value="${m.objetivo||''}" placeholder="20000">
+    <label class="f">Ya llevas ahorrado ($) — opcional</label>
+    <input class="in" id="mYa" type="number" inputmode="numeric" value="${m.ahorrado||''}" placeholder="0">
+    <label class="f">Fecha meta (opcional)</label>
+    <input class="in" id="mFec" type="date" value="${m.fecha||''}">
+    <div style="margin-top:16px"><button class="btn" onclick="guardarMeta('${id||''}')">Guardar</button></div>
+    ${editando?`<button class="btn danger" style="margin-top:10px" onclick="borrarMeta('${id}')">Borrar meta</button>`:''}`);
+  setTimeout(()=>$('#mNom').focus(),100);
+}
+function guardarMeta(id){
+  const nombre = $('#mNom').value.trim(); if(!nombre) return;
+  const objetivo = Number($('#mObj').value)||0;
+  const ahorrado = Math.max(0, Number($('#mYa').value)||0);
+  const fecha = $('#mFec').value||'';
+  if(!S.finanzas.metas) S.finanzas.metas=[];
+  if(id){ const m=S.finanzas.metas.find(x=>x.id===id); if(m) Object.assign(m,{nombre,objetivo,ahorrado,fecha}); }
+  else S.finanzas.metas.push({id:uid(), nombre, objetivo, ahorrado, fecha, ts:Date.now()});
+  save(); closeSheet(); render();
+}
+function borrarMeta(id){
+  if(!confirm('¿Borrar esta meta de ahorro?')) return;
+  S.finanzas.metas = (S.finanzas.metas||[]).filter(x=>x.id!==id); save(); closeSheet(); render();
+}
+function sheetAbonar(id){
+  const m = (S.finanzas.metas||[]).find(x=>x.id===id); if(!m) return;
+  openSheet(`<h3>Abonar a «${esc(m.nombre)}»</h3>
+    <div class="banner info">Llevas <b>${money(m.ahorrado)}</b> de ${money(m.objetivo)}.</div>
+    <label class="f">¿Cuánto agregas?</label>
+    <input class="in" id="abMonto" type="number" inputmode="decimal" placeholder="500">
+    <div class="hint">Tip: pon un número negativo (ej. -200) si necesitas sacar dinero de aquí.</div>
+    <div style="margin-top:16px"><button class="btn" onclick="guardarAbono('${id}')">Guardar</button></div>`);
+  setTimeout(()=>$('#abMonto').focus(),100);
+}
+function guardarAbono(id){
+  const m = (S.finanzas.metas||[]).find(x=>x.id===id); if(!m) return;
+  const delta = Number($('#abMonto').value); if(!delta) return;
+  const antes = m.objetivo && m.ahorrado>=m.objetivo;
+  m.ahorrado = Math.max(0, (m.ahorrado||0)+delta);
+  save(); closeSheet(); render();
+  if(m.objetivo && m.ahorrado>=m.objetivo && !antes) toast('🎉 ¡Meta lograda!'); else toast('Abono guardado ✓');
+}
+
 function graficaGastos(){
   const now=new Date(); const items=[];
   for(let k=5;k>=0;k--){
