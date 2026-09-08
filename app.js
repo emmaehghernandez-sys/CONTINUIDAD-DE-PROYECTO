@@ -484,7 +484,6 @@ function viewComida(){
    ============================================================ */
 const GRUPOS = [
   {id:'pecho',   nombre:'Pecho',   color:'#c56a34'},
-  {id:'espalda', nombre:'Espalda', color:'#3a7d4d'},
   {id:'hombro',  nombre:'Hombro',  color:'#1f97a8'},
   {id:'biceps',  nombre:'Bíceps',  color:'#6a4fd0'},
   {id:'triceps', nombre:'Tríceps', color:'#8a5cd0'},
@@ -498,11 +497,6 @@ const EJERCICIOS = [
   {id:'press_inclinado',grupo:'pecho',   nombre:'Press inclinado',    variantes:['Mancuerna','Barra','Máquina'], cue:'Banca a 30-45°: pega al pecho superior.'},
   {id:'aperturas',      grupo:'pecho',   nombre:'Aperturas',          variantes:['Mancuerna','Polea','Peck deck'], cue:'Codos semi-flexionados, siente el estiramiento.'},
   {id:'fondos_pecho',   grupo:'pecho',   nombre:'Fondos (dips)',      variantes:['Peso corporal','Máquina'], cue:'Inclina el torso al frente para cargar el pecho.'},
-  // Espalda
-  {id:'jalon',          grupo:'espalda', nombre:'Jalón al pecho',     variantes:['Polea','Máquina'], cue:'Lleva la barra al pecho, codos hacia abajo, sin columpio.'},
-  {id:'remo',           grupo:'espalda', nombre:'Remo',               variantes:['Barra','Mancuerna','Polea','Máquina'], cue:'Jala hacia el ombligo y aprieta escápulas.'},
-  {id:'dominadas',      grupo:'espalda', nombre:'Dominadas',          variantes:['Peso corporal','Asistida'], cue:'Sube hasta pasar la barbilla la barra.'},
-  {id:'pullover',       grupo:'espalda', nombre:'Pull-over',          variantes:['Mancuerna','Polea'], cue:'Estira dorsales llevando el peso atrás.'},
   // Hombro
   {id:'press_militar',  grupo:'hombro',  nombre:'Press militar',      variantes:['Barra','Mancuerna','Máquina'], cue:'Empuja arriba sin arquear la espalda.'},
   {id:'lateral',        grupo:'hombro',  nombre:'Elevaciones laterales', variantes:['Mancuerna','Polea','Máquina'], cue:'Sube a la altura del hombro, codos ligeros.'},
