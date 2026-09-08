@@ -187,6 +187,7 @@ function render(){
   const el = $('#app');
   el.innerHTML = ({inicio:viewInicio, calendario:viewCalendario, dinero:viewDinero, comida:viewComida, gym:viewGym, uni:viewUni}[vista])();
   el.className = 'view';
+  const fab = $('#coachFab'); if(fab) fab.hidden = !S.onboarded;
 }
 
 /* ---------- INICIO / Dashboard ---------- */
@@ -1635,7 +1636,46 @@ function toast(msg){
   clearTimeout(toastT); toastT = setTimeout(()=>t.style.opacity='0', 1800);
 }
 
+/* ---------- Burbuja flotante del Coach (arrastrable, estilo Messenger) ---------- */
+function setupCoachFab(){
+  const fab = document.getElementById('coachFab');
+  if(!fab) return;
+  // restaurar la última posición donde la dejó el usuario
+  try{
+    const p = JSON.parse(localStorage.getItem('coachFabPos')||'null');
+    if(p){ fab.style.left=p.left+'px'; fab.style.top=p.top+'px'; fab.style.right='auto'; fab.style.bottom='auto'; }
+  }catch(_){}
+
+  let dragging=false, moved=false, ox=0, oy=0, sx=0, sy=0;
+  fab.addEventListener('pointerdown', e=>{
+    dragging=true; moved=false; fab.classList.add('dragging');
+    try{ fab.setPointerCapture(e.pointerId); }catch(_){}
+    const r=fab.getBoundingClientRect();
+    ox=e.clientX-r.left; oy=e.clientY-r.top; sx=e.clientX; sy=e.clientY;
+  });
+  fab.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>6) moved=true;
+    const w=fab.offsetWidth, h=fab.offsetHeight;
+    const x=clamp(e.clientX-ox, 6, window.innerWidth-w-6);
+    const y=clamp(e.clientY-oy, 50, window.innerHeight-h-70);
+    fab.style.left=x+'px'; fab.style.top=y+'px'; fab.style.right='auto'; fab.style.bottom='auto';
+  });
+  const soltar = () => {
+    if(!dragging) return; dragging=false; fab.classList.remove('dragging');
+    if(!moved){ openCoach(); return; }                 // fue un toque → abrir Coach
+    const r=fab.getBoundingClientRect(), w=fab.offsetWidth;
+    const left=(r.left+w/2 < window.innerWidth/2) ? 8 : window.innerWidth-w-8;   // se pega a la orilla
+    const top=clamp(r.top, 50, window.innerHeight-w-70);
+    fab.style.left=left+'px'; fab.style.top=top+'px';
+    try{ localStorage.setItem('coachFabPos', JSON.stringify({left, top})); }catch(_){}
+  };
+  fab.addEventListener('pointerup', soltar);
+  fab.addEventListener('pointercancel', ()=>{ dragging=false; fab.classList.remove('dragging'); });
+}
+
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 render();
+setupCoachFab();
