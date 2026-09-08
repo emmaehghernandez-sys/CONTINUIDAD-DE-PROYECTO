@@ -1524,19 +1524,22 @@ function openCoach(){
     '¿Cuánto tiempo de gym me recomiendas para subir a mi meta?',
     'Organízame la semana con mis tareas pendientes',
   ];
-  openSheet(`<h3>✦ Coach</h3>
-    <p class="hint">Pregúntame lo que quieras sobre tu dinero, comida, gym o tareas. Ya conozco tus datos de hoy.</p>
-    <div class="chips" style="margin:6px 0 12px">
-      ${sugerencias.map(s=>`<button class="chip" onclick="usarSug(this)">${esc(s)}</button>`).join('')}
+  openSheet(`<div class="kpi" style="justify-content:space-between;margin-bottom:6px">
+      <h3 style="margin:0">✦ Coach</h3>
+      ${coachChat.length?`<button class="btn sm sec" style="width:auto;padding:7px 12px" onclick="nuevoCoach()">🗑️ Nuevo</button>`:''}
     </div>
-    <textarea class="in" id="ckMsg" placeholder="Escribe tu pregunta…"></textarea>
-    <label style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:14px;color:var(--txt)">
+    ${coachChat.length? '' : `<p class="hint">Pregúntame lo que quieras sobre tu dinero, comida, gym o tareas. Ya conozco tus datos de hoy y me acuerdo de lo que vamos platicando.</p>
+    <div class="chips" style="margin:6px 0 6px">
+      ${sugerencias.map(s=>`<button class="chip" onclick="usarSug(this)">${esc(s)}</button>`).join('')}
+    </div>`}
+    <div id="ckThread" style="max-height:44vh;overflow:auto;margin:8px 0"></div>
+    <textarea class="in" id="ckMsg" placeholder="${coachChat.length?'Sigue preguntando…':'Escribe tu pregunta…'}"></textarea>
+    <label style="display:flex;align-items:center;gap:9px;margin-top:10px;font-size:14px;color:var(--txt)">
       <input type="checkbox" id="ckWeb" ${S.ajustes.webBuscar!==false?'checked':''} onchange="S.ajustes.webBuscar=this.checked;save()" style="width:20px;height:20px;accent-color:var(--acc)">
       🌐 Dejar que busque en internet si hace falta
     </label>
-    <div class="hint" style="margin-top:2px">Solo busca cuando necesita datos actuales (ej. precio del dólar). Cada búsqueda cuesta ~1 centavo extra.</div>
-    <div style="margin-top:12px"><button class="btn" id="ckSend" onclick="enviarCoach()">Preguntar ✦</button></div>
-    <div id="ckResp" style="margin-top:16px"></div>`);
+    <div style="margin-top:12px"><button class="btn" id="ckSend" onclick="enviarCoach()">Preguntar ✦</button></div>`);
+  renderCoachThread(false);
   setTimeout(()=>$('#ckMsg')?.focus(),100);
 }
 function guardarKeyCoach(){
@@ -1545,21 +1548,40 @@ function guardarKeyCoach(){
   S.ajustes.apiKey = k; save(); closeSheet(); openCoach();
 }
 function usarSug(el){ $('#ckMsg').value = el.textContent; $('#ckMsg').focus(); }
+function nuevoCoach(){ coachChat = []; openCoach(); }
+
+// Historial de la charla con el Coach (vive mientras la sesión está abierta)
+let coachChat = [];
+function renderCoachThread(pensando){
+  const cont = $('#ckThread'); if(!cont) return;
+  const burbujas = coachChat.map(m=>{
+    if(m.role==='user')
+      return `<div style="display:flex;justify-content:flex-end;margin:7px 0"><div style="background:var(--acc);color:#f3eee4;padding:10px 13px;border-radius:16px 16px 4px 16px;max-width:85%;white-space:pre-wrap">${esc(m.content)}</div></div>`;
+    return `<div style="display:flex;margin:7px 0"><div class="coachmsg" style="background:var(--card);border:1px solid var(--line2);padding:11px 13px;border-radius:16px 16px 16px 4px;max-width:90%">✦ ${esc(m.content)}${m.buscó?'<div class="hint" style="margin-top:5px">🌐 buscó en internet</div>':''}</div></div>`;
+  }).join('');
+  const cargando = pensando ? `<div style="display:flex;margin:7px 0"><div style="background:var(--card);border:1px solid var(--line2);padding:11px 14px;border-radius:16px"><span class="spin"></span></div></div>` : '';
+  cont.innerHTML = burbujas + cargando;
+  cont.scrollTop = cont.scrollHeight;
+}
 
 async function enviarCoach(){
-  const msg = $('#ckMsg').value.trim(); if(!msg) return;
-  const resp = $('#ckResp'); const btn = $('#ckSend');
+  const inp = $('#ckMsg'); const msg = inp.value.trim(); if(!msg) return;
+  const btn = $('#ckSend');
   const usaWeb = S.ajustes.webBuscar !== false;
+  coachChat.push({ role:'user', content: msg });
+  inp.value = '';
+  renderCoachThread(true);
+  // ocultar sugerencias/hint tras el primer mensaje
+  $$('#sheetRoot .chips').forEach(c=>{ if(c.querySelector('[onclick^="usarSug"]')) c.remove(); });
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
-  resp.innerHTML = `<div class="card"><span class="spin"></span> <span class="muted">${usaWeb?'El coach está pensando (puede buscar en internet)…':'El coach está pensando…'}</span></div>`;
 
-  const system = `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.${usaWeb? ' Tienes una herramienta de búsqueda web: úsala SOLO cuando necesites datos actuales o que no conoces (precio o tipo de cambio del dólar, precios de productos, noticias o info reciente). Para consejos con los datos del usuario NO la necesitas. Si buscas, cita brevemente la fuente.' : ''}\n\nDATOS DE HOY:\n${contextoParaCoach()}`;
+  const system = `Eres el coach personal de ${S.perfil.nombre}, en su app de vida diaria. Hablas español mexicano, cercano y directo, lo tratas por su nombre. Recuerdas lo que van platicando en esta conversación y le das seguimiento. Das consejos concretos y accionables sobre dinero, comida/porciones, gym y tareas de la universidad, SIEMPRE usando los datos reales que te paso. Sé breve (máx ~180 palabras), con pasos claros y números concretos. No des consejo médico serio; si algo es de salud delicada, sugiere ver a un profesional.${usaWeb? ' Tienes una herramienta de búsqueda web: úsala SOLO cuando necesites datos actuales o que no conoces (precio o tipo de cambio del dólar, precios de productos, noticias o info reciente). Para consejos con los datos del usuario NO la necesitas. Si buscas, cita brevemente la fuente.' : ''}\n\nDATOS DE HOY:\n${contextoParaCoach()}`;
 
   const body = {
     model: S.ajustes.modelo || 'claude-haiku-4-5',
     max_tokens: 1000,
     system,
-    messages: [{ role:'user', content: msg }]
+    messages: coachChat.map(m=>({ role:m.role, content:m.content }))
   };
   if(usaWeb) body.tools = [{ type:'web_search_20250305', name:'web_search', max_uses:3 }];
 
@@ -1587,15 +1609,17 @@ async function enviarCoach(){
       break;
     }
     if(data.error){
-      resp.innerHTML = `<div class="banner warn">Error: ${esc(data.error.message||'algo falló')}. Revisa tu API key en Ajustes.</div>`;
+      coachChat.push({ role:'assistant', content:`⚠️ Error: ${data.error.message||'algo falló'}. Revisa tu API key en Ajustes.` });
     } else {
       const txt = (data.content||[]).map(c=>c.text||'').join('\n').trim() || 'No obtuve respuesta, intenta de nuevo.';
-      resp.innerHTML = `<div class="card coachmsg">✦ ${esc(txt)}</div>${buscó?'<div class="hint center" style="margin-top:6px">🌐 El coach buscó en internet para responderte.</div>':''}`;
+      coachChat.push({ role:'assistant', content:txt, buscó });
     }
   }catch(err){
-    resp.innerHTML = `<div class="banner warn">No pude conectar. Revisa tu internet y tu API key. (${esc(String(err.message||err))})</div>`;
+    coachChat.push({ role:'assistant', content:'⚠️ No pude conectar. Revisa tu internet y tu API key.' });
   }
   btn.disabled = false; btn.innerHTML = 'Preguntar ✦';
+  renderCoachThread(false);
+  setTimeout(()=>$('#ckMsg')?.focus(),50);
 }
 
 /* ============================================================
