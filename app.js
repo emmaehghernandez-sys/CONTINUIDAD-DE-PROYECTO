@@ -50,7 +50,7 @@ const DEFAULT_CATS = [
 const DEFAULT = {
   v: 1,
   perfil: { nombre:'Emmanuel', sexo:'', edad:null, altura:null, pesoActual:null, pesoMeta:null, actividad:'moderado', objetivo:'subir' },
-  finanzas: { semanal:7000, cats: DEFAULT_CATS.map(c=>({...c})), movs:[], metas:[] },
+  finanzas: { semanal:7000, cats: DEFAULT_CATS.map(c=>({...c})), movs:[], metas:[], favoritos:[], deudas:[] },
   comida: { registros:[], vasosAgua:{} },
   gym: { rutina:{lunes:'',martes:'',miércoles:'',jueves:'',viernes:'',sábado:'',domingo:''},
          entrenos:[], suplementos:[], tomas:[] },
@@ -204,6 +204,7 @@ function viewInicio(){
   const yaEntreno = S.gym.entrenos.some(e=>e.fecha===hoy());
 
   let avisos = generarAvisos();
+  const ins = insightsHoy();
   const rGym = rachaGym();
   const rActivo = rachaDias(activoDia);
   const rAgua = rachaDias(iso=>(S.comida.vasosAgua[iso]||0)>=6);
@@ -225,6 +226,8 @@ function viewInicio(){
       ? `<div class="banner ok" style="margin:12px 0 0">🔥 ¡${rGym} entrenos en racha, ${esc(S.perfil.nombre)}! No dejes pasar más de 3 días. 💪</div>`
       : `<div class="hint" style="margin-top:11px">La racha de gym aguanta huecos de hasta 3 días (por si llueve 🌧️). Solo se rompe si dejas pasar más de 3 días sin entrenar.</div>`}
   </div>
+
+  ${ins.slice(0,2).map(a=>`<div class="banner ${a.tipo}">${a.html}</div>`).join('')}
 
   <div class="grid2">
     <div class="stat">
@@ -276,6 +279,9 @@ function viewInicio(){
     <button class="btn sec" onclick="sheetEntreno()">🏋️ Entreno</button>
     <button class="btn sec" onclick="sheetTarea()">🎓 Tarea</button>
   </div>
+  ${(S.finanzas.favoritos||[]).length? `<div class="chips" style="margin-top:10px">
+    ${S.finanzas.favoritos.map(f=>`<button class="chip" onclick="gastoRapido('${f.id}')">⚡ ${esc(f.nombre)} · ${money(f.monto)}</button>`).join('')}
+  </div>`:''}
 
   <div style="margin-top:14px"><button class="btn ghost" onclick="openAjustes()">⚙️ Ajustes y perfil</button></div>
   <div class="center small muted" style="margin:18px 0 4px">Tus datos viven solo en este teléfono 🔒</div>
@@ -367,6 +373,8 @@ function viewDinero(){
     </div>
   </div>
 
+  ${favoritosHtml()}
+
   <div class="banner info" style="margin-top:4px">
     <b>Reparto sugerido</b> de tus ${money(rep.total)}: primero tus fijos (${money(rep.fijos)}), y del resto libre (${money(rep.libre)}):
     🛒 ${money(rep.plan.mandado)} mandado · 📈 ${money(rep.plan.inversion)} ahorro/inversión · 🐜 máx ${money(rep.plan.hormiga)} hormiga · ✨ ${money(rep.plan.otros)} libre.
@@ -374,6 +382,8 @@ function viewDinero(){
   </div>
 
   ${metasAhorroHtml()}
+
+  ${deudasHtml()}
 
   ${graficaGastos()}
 
@@ -909,6 +919,143 @@ function guardarAbono(id){
   m.ahorrado = Math.max(0, (m.ahorrado||0)+delta);
   save(); closeSheet(); render();
   if(m.objetivo && m.ahorrado>=m.objetivo && !antes) toast('🎉 ¡Meta lograda!'); else toast('Abono guardado ✓');
+}
+
+/* ---------- Gastos rápidos (favoritos de 1 toque) ---------- */
+function favoritosHtml(){
+  const favs = S.finanzas.favoritos || [];
+  return `<div class="sectitle"><h2>⚡ Gastos rápidos</h2><button class="addbtn" onclick="sheetFavorito()">+</button></div>
+    ${favs.length ? `<div class="chips" style="margin:0 0 6px">
+      ${favs.map(f=>`<span style="display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--card)">
+        <button class="chip" style="border:none;border-radius:0;box-shadow:none;background:transparent" onclick="gastoRapido('${f.id}')">${esc(f.nombre)} · ${money(f.monto)}</button>
+        <button class="chip" style="border:none;border-radius:0;box-shadow:none;background:transparent;color:var(--mut);padding:9px 11px" onclick="borrarFavorito('${f.id}')">×</button>
+      </span>`).join('')}
+    </div>` : `<div class="hint" style="margin:0 4px 8px">Crea botones para tus gastos de siempre (café, camión…) y regístralos con un solo toque. 👆</div>`}`;
+}
+function gastoRapido(id){
+  const f = (S.finanzas.favoritos||[]).find(x=>x.id===id); if(!f) return;
+  S.finanzas.movs.push({id:uid(), monto:f.monto, cat:f.cat, nota:f.nombre, fecha:hoy(), ts:Date.now()});
+  save(); render(); toast(`${f.nombre} · ${money(f.monto)} ✓`);
+}
+function sheetFavorito(id){
+  const f = (S.finanzas.favoritos||[]).find(x=>x.id===id) || {nombre:'',monto:'',cat:'hormiga'};
+  const cats = S.finanzas.cats;
+  openSheet(`<h3>${id?'Editar':'Nuevo'} gasto rápido</h3>
+    <label class="f">Nombre</label>
+    <input class="in" id="fvNom" value="${esc(f.nombre)}" placeholder="ej. Café">
+    <label class="f">Monto</label>
+    <input class="in" id="fvMonto" type="number" inputmode="decimal" value="${f.monto||''}" placeholder="80">
+    <label class="f">Categoría</label>
+    <div class="chips" id="fvCats">
+      ${cats.map(c=>`<button class="chip ${c.id===f.cat?'on':''}" data-cat="${c.id}" onclick="selChip(this,'fvCats')">${c.icono} ${esc(c.nombre)}</button>`).join('')}
+    </div>
+    <div style="margin-top:16px"><button class="btn" onclick="guardarFavorito('${id||''}')">Guardar</button></div>`);
+  setTimeout(()=>$('#fvNom').focus(),100);
+}
+function guardarFavorito(id){
+  const nombre = $('#fvNom').value.trim(); if(!nombre) return;
+  const monto = Number($('#fvMonto').value)||0; if(!monto) return;
+  const cat = $('#fvCats .chip.on')?.dataset.cat || 'otros';
+  if(!S.finanzas.favoritos) S.finanzas.favoritos=[];
+  if(id){ const f=S.finanzas.favoritos.find(x=>x.id===id); if(f) Object.assign(f,{nombre,monto,cat}); }
+  else S.finanzas.favoritos.push({id:uid(), nombre, monto, cat});
+  save(); closeSheet(); render();
+}
+function borrarFavorito(id){ S.finanzas.favoritos=(S.finanzas.favoritos||[]).filter(x=>x.id!==id); save(); render(); }
+
+/* ---------- Deudas con seguimiento ---------- */
+function deudasHtml(){
+  const deudas = S.finanzas.deudas || [];
+  const cards = deudas.map(d=>{
+    const pct = d.total ? clamp(d.pagado/d.total*100,0,100) : 0;
+    const done = d.total && d.pagado>=d.total;
+    return `<div class="card">
+      <div class="kpi" style="justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div class="t" style="font-weight:700;font-size:16px">${done?'✅ ':'💳 '}${esc(d.nombre)}</div>
+          <div class="s muted" style="margin-top:2px">Pagado ${money(d.pagado)} de ${money(d.total)}${d.fecha?` · límite ${fechaBonita(d.fecha)}`:''}</div>
+        </div>
+        <button class="addbtn" onclick="sheetDeuda('${d.id}')">✎</button>
+      </div>
+      <div class="bar" style="margin-top:11px;height:12px"><span style="width:${pct}%;background:${done?'var(--ok)':'var(--warn)'}"></span></div>
+      <div class="kpi" style="justify-content:space-between;margin-top:10px">
+        <div class="sm" style="font-weight:800;color:${done?'var(--ok)':'var(--warn)'}">${done?'¡Pagada! 🎉':'Te falta '+money(d.total-d.pagado)}</div>
+        ${done?'':`<button class="btn sm" style="width:auto" onclick="sheetPagar('${d.id}')">＋ Abonar pago</button>`}
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="sectitle"><h2>Deudas</h2><button class="addbtn" onclick="sheetDeuda()">+</button></div>
+    ${deudas.length? cards : `<div class="card"><div class="empty"><div class="big">💳</div>Registra lo que debes y ve cómo baja conforme pagas.</div></div>`}`;
+}
+function sheetDeuda(id){
+  const d = (S.finanzas.deudas||[]).find(x=>x.id===id) || {nombre:'',total:'',pagado:0,fecha:''};
+  const editando = !!id;
+  openSheet(`<h3>${editando?'Editar deuda':'Nueva deuda'}</h3>
+    <label class="f">¿A quién o qué debes?</label>
+    <input class="in" id="dNom" value="${esc(d.nombre)}" placeholder="ej. Tarjeta, préstamo a papá">
+    <label class="f">Monto total ($)</label>
+    <input class="in" id="dTot" type="number" inputmode="numeric" value="${d.total||''}" placeholder="5000">
+    <label class="f">Ya pagado ($) — opcional</label>
+    <input class="in" id="dPag" type="number" inputmode="numeric" value="${d.pagado||''}" placeholder="0">
+    <label class="f">Fecha límite (opcional)</label>
+    <input class="in" id="dFec" type="date" value="${d.fecha||''}">
+    <div style="margin-top:16px"><button class="btn" onclick="guardarDeuda('${id||''}')">Guardar</button></div>
+    ${editando?`<button class="btn danger" style="margin-top:10px" onclick="borrarDeuda('${id}')">Borrar deuda</button>`:''}`);
+  setTimeout(()=>$('#dNom').focus(),100);
+}
+function guardarDeuda(id){
+  const nombre = $('#dNom').value.trim(); if(!nombre) return;
+  const total = Number($('#dTot').value)||0;
+  const pagado = Math.max(0, Number($('#dPag').value)||0);
+  const fecha = $('#dFec').value||'';
+  if(!S.finanzas.deudas) S.finanzas.deudas=[];
+  if(id){ const d=S.finanzas.deudas.find(x=>x.id===id); if(d) Object.assign(d,{nombre,total,pagado,fecha}); }
+  else S.finanzas.deudas.push({id:uid(), nombre, total, pagado, fecha, ts:Date.now()});
+  save(); closeSheet(); render();
+}
+function borrarDeuda(id){
+  if(!confirm('¿Borrar esta deuda?')) return;
+  S.finanzas.deudas=(S.finanzas.deudas||[]).filter(x=>x.id!==id); save(); closeSheet(); render();
+}
+function sheetPagar(id){
+  const d = (S.finanzas.deudas||[]).find(x=>x.id===id); if(!d) return;
+  openSheet(`<h3>Abonar a «${esc(d.nombre)}»</h3>
+    <div class="banner info">Pagado <b>${money(d.pagado)}</b> de ${money(d.total)}. Falta ${money(Math.max(0,d.total-d.pagado))}.</div>
+    <label class="f">¿Cuánto pagaste?</label>
+    <input class="in" id="pgMonto" type="number" inputmode="decimal" placeholder="500">
+    <div style="margin-top:16px"><button class="btn" onclick="guardarPago('${id}')">Guardar pago</button></div>`);
+  setTimeout(()=>$('#pgMonto').focus(),100);
+}
+function guardarPago(id){
+  const d = (S.finanzas.deudas||[]).find(x=>x.id===id); if(!d) return;
+  const delta = Number($('#pgMonto').value); if(!delta) return;
+  const antes = d.total && d.pagado>=d.total;
+  d.pagado = Math.max(0, (d.pagado||0)+delta);
+  save(); closeSheet(); render();
+  if(d.total && d.pagado>=d.total && !antes) toast('🎉 ¡Deuda pagada!'); else toast('Pago registrado ✓');
+}
+
+/* ---------- Comparativas automáticas ---------- */
+function insightsHoy(){
+  const out = [];
+  const now = new Date();
+  const iniEsta = inicioSemana(now);
+  const iniPasada = new Date(iniEsta); iniPasada.setDate(iniPasada.getDate()-7);
+  const finEsta = new Date(iniEsta); finEsta.setDate(finEsta.getDate()+7);
+  const sumRango = (a,b) => S.finanzas.movs.filter(m=>{ const f=new Date(m.fecha+'T12:00:00'); return f>=a && f<b; }).reduce((s,m)=>s+m.monto,0);
+  const gEsta = sumRango(iniEsta,finEsta), gPasada = sumRango(iniPasada,iniEsta);
+  if(gPasada>0){
+    const dif = Math.round((gEsta-gPasada)/gPasada*100);
+    if(dif<=-5) out.push({tipo:'ok', html:`💸 Vas gastando <b>${Math.abs(dif)}% menos</b> que la semana pasada. ¡Así se hace!`});
+    else if(dif>=10) out.push({tipo:'warn', html:`💸 Vas gastando <b>${dif}% más</b> que la semana pasada (${money(gEsta)} vs ${money(gPasada)}). Aguanta el ritmo.`});
+  }
+  const key = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const kEste = key(now), kPrev = key(new Date(now.getFullYear(), now.getMonth()-1, 1));
+  const gymEste = S.gym.entrenos.filter(e=>e.fecha && e.fecha.slice(0,7)===kEste).length;
+  const gymPrev = S.gym.entrenos.filter(e=>e.fecha && e.fecha.slice(0,7)===kPrev).length;
+  if((gymEste||gymPrev) && gymEste>gymPrev) out.push({tipo:'ok', html:`🏋️ Llevas <b>${gymEste} entrenos</b> este mes (el pasado ${gymPrev}). ¡Vas mejor!`});
+  else if(gymPrev>0 && gymPrev>gymEste) out.push({tipo:'info', html:`🏋️ Este mes llevas ${gymEste} entrenos; el pasado fueron ${gymPrev}. A alcanzarlo. 💪`});
+  return out;
 }
 
 function graficaGastos(){
