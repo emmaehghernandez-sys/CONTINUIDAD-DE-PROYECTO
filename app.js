@@ -9,7 +9,8 @@
 const $ = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
-const hoy = () => new Date().toISOString().slice(0, 10);
+// Fecha de HOY en horario LOCAL (no UTC) para que lo registrado de noche caiga en el día correcto
+const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const esc = (s='') => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = n => '$' + Math.round(Number(n)||0).toLocaleString('es-MX');
 const clamp = (n,a,b) => Math.max(a, Math.min(b, n));
